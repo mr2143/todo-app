@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Enhanced Column-Based Todo App</title>
+  <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      margin: 0; 
+      padding: 0; 
+      background-color: #f5f5f5;
+    }
+    .header {
+      background: #4a90e2;
+      color: white;
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .container {
+      padding: 20px;
+    }
+    .add-task {
+      margin-bottom: 20px;
+      display: flex;
+    }
+    .add-task input {
+      flex-grow: 1;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .add-task button {
+      margin-left: 8px;
+      padding: 8px 16px;
+      background-color: #4a90e2;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .task-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 15px;
+    }
+    .task-card {
+      background: white;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    .task-header {
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+      background-color: #f9f9f9;
+      display: flex;
+      align-items: center;
+    }
+    .task-content {
+      padding: 12px;
+    }
+    .subtask {
+      margin-bottom: 12px;
+      display: flex;
+      align-items: flex-start; /* Changed from center to flex-start */
+      flex-direction: column; /* Added to make the subtask container a column */
+    }
+    .subtask-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px; /* Add space between the subtask header and its sub-subtasks */
+    }
+    .sub-subtask {
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      padding-left: 24px; /* Added padding to create indent */
+      width: calc(100% - 24px); /* Adjust width to account for padding */
+      border-left: 2px solid #eee; /* Add a vertical line for visual hierarchy */
+    }
+    .sub-subtasks-container {
+      width: 100%;
+      margin-top: 4px; /* Space between subtask header and sub-subtasks list */
+      margin-bottom: 8px; /* Space between sub-subtasks list and add input */
+    }
+    .add-subtask, .add-sub-subtask {
+      margin-top: 10px;
+      display: flex;
+      width: 100%; /* Ensure full width */
+    }
+    .add-subtask input, .add-sub-subtask input {
+      flex-grow: 1;
+      padding: 6px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .add-subtask button, .add-sub-subtask button {
+      margin-left: 8px;
+      padding: 6px 12px;
+      background-color: #4a90e2;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .footer {
+      background: #ddd;
+      padding: 8px 20px;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .completed {
+      text-decoration: line-through;
+      color: #777;
+    }
+    .window-buttons button {
+      background: none;
+      border: none;
+      color: white;
+      cursor: pointer;
+      padding: 0 5px;
+      font-size: 16px;
+    }
+    .task-text-edit {
+      flex-grow: 1;
+      margin-left: 8px;
+      padding: 4px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .action-buttons {
+      display: flex;
+      align-items: center;
+      margin-left: 8px;
+    }
+    .action-buttons button {
+      background: none;
+      border: none;
+      color: #666;
+      cursor: pointer;
+      padding: 0 5px;
+    }
+    .action-buttons button:hover {
+      color: #333;
+    }
+    .nested-level {
+      margin-left: 20px;
+    }
+    /* New styles for improved sub-subtask display */
+    .add-sub-subtask {
+      padding-left: 24px;
+      width: calc(100% - 24px);
+    }
+    /* Progress bar styles */
+    .progress-container {
+      width: 100%;
+      height: 8px;
+      background-color: #f0f0f0;
+      border-radius: 4px;
+      margin: 8px 0;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background-color: #4CAF50;
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+    .progress-info {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const TodoApp = () => {
+      // Load tasks from localStorage on initial render
+      const [tasks, setTasks] = React.useState(() => {
+        </div>
+      );
+    };
+    
+    ReactDOM.render(<TodoApp />, document.getElementById('root'));
+  </script>
+</body>
+</html>try {
+          const savedTasks = localStorage.getItem('tasks');
+          return savedTasks ? JSON.parse(savedTasks) : [
+            { 
+              id: 1, 
+              text: "Example task", 
+              completed: false, 
+              editing: false,
+              subtasks: [
+                { 
+                  id: 11, 
+                  text: "Example subtask", 
+                  completed: false,
+                  editing: false,
+                  sub_subtasks: [
+                    {
+                      id: 111,
+                      text: "Example sub-subtask",
+                      completed: false,
+                      editing: false
+                    }
+                  ]
+                }
+              ]
+            }
+          ];
+        } catch (error) {
+          console.error("Error loading from localStorage:", error);
+          return [
+            { 
+              id: 1, 
+              text: "Example task", 
+              completed: false, 
+              editing: false,
+              subtasks: [
+                { 
+                  id: 11, 
+                  text: "Example subtask", 
+                  completed: false,
+                  editing: false,
+                  sub_subtasks: [
+                    {
+                      id: 111,
+                      text: "Example sub-subtask",
+                      completed: false,
+                      editing: false
+                    }
+                  ]
+                }
+              ]
+            }
+          ];
+        }
+      });
+      
+      const [newTask, setNewTask] = React.useState("");
+      
+      // Load expanded state from localStorage
+      const [expandedTasks, setExpandedTasks] = React.useState(() => {
+        try {
+          const savedExpanded = localStorage.getItem('expandedTasks');
+          return savedExpanded ? JSON.parse(savedExpanded) : {1: true};
+        } catch (error) {
+          console.error("Error loading expanded state:", error);
+          return {1: true};
+        }
+      });
+      
+      // Add new state for tracking expanded subtasks
+      const [expandedSubtasks, setExpandedSubtasks] = React.useState(() => {
+        try {
+          const savedExpandedSubtasks = localStorage.getItem('expandedSubtasks');
+          return savedExpandedSubtasks ? JSON.parse(savedExpandedSubtasks) : {11: true};
+        } catch (error) {
+          console.error("Error loading expanded subtasks state:", error);
+          return {11: true};
+        }
+      });
+      
+      // Save tasks to localStorage whenever they change
+      React.useEffect(() => {
+        try {
+          localStorage.setItem('tasks', JSON.stringify(tasks));
+        } catch (error) {
+          console.error("Error saving to localStorage:", error);
+        }
+      }, [tasks]);
+      
+      // Save expanded state to localStorage
+      React.useEffect(() => {
+        try {
+          localStorage.setItem('expandedTasks', JSON.stringify(expandedTasks));
+        } catch (error) {
+          console.error("Error saving expanded state:", error);
+        }
+      }, [expandedTasks]);
+      
+      // Save expanded subtasks state to localStorage
+      React.useEffect(() => {
+        try {
+          localStorage.setItem('expandedSubtasks', JSON.stringify(expandedSubtasks));
+        } catch (error) {
+          console.error("Error saving expanded subtasks state:", error);
+        }
+      }, [expandedSubtasks]);
+      
+      const addTask = () => {
+        if (newTask.trim() === "") return;
+        const newTaskObj = {
+          id: Date.now(),
+          text: newTask,
+          completed: false,
+          editing: false,
+          subtasks: []
+        };
+        setTasks([...tasks, newTaskObj]);
+        setNewTask("");
+      };
+      
+      const addSubtask = (taskId, subtaskText) => {
+        if (subtaskText.trim() === "") return;
+        const newSubtaskId = Date.now();
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: [...task.subtasks, {
+                id: newSubtaskId,
+                text: subtaskText,
+                completed: false,
+                editing: false,
+                sub_subtasks: []
+              }]
+            };
+          }
+          return task;
+        }));
+        
+        // Automatically expand the new subtask
+        setExpandedSubtasks({
+          ...expandedSubtasks,
+          [newSubtaskId]: true
+        });
+      };
+      
+      const addSubSubtask = (taskId, subtaskId, subSubtaskText) => {
+        if (subSubtaskText.trim() === "") return;
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => {
+                if (subtask.id === subtaskId) {
+                  return {
+                    ...subtask,
+                    sub_subtasks: [...(subtask.sub_subtasks || []), {
+                      id: Date.now(),
+                      text: subSubtaskText,
+                      completed: false,
+                      editing: false
+                    }]
+                  };
+                }
+                return subtask;
+              })
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const toggleTaskCompletion = (taskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            const newCompletedState = !task.completed;
+            return {
+              ...task,
+              completed: newCompletedState,
+              subtasks: task.subtasks.map(subtask => ({
+                ...subtask,
+                completed: newCompletedState ? true : subtask.completed,
+                sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => ({
+                  ...subSubtask,
+                  completed: newCompletedState ? true : subSubtask.completed
+                }))
+              }))
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const toggleSubtaskCompletion = (taskId, subtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            const updatedSubtasks = task.subtasks.map(subtask => {
+              if (subtask.id === subtaskId) {
+                const newSubtaskCompletedState = !subtask.completed;
+                return { 
+                  ...subtask, 
+                  completed: newSubtaskCompletedState,
+                  sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => ({
+                    ...subSubtask,
+                    completed: newSubtaskCompletedState ? true : subSubtask.completed
+                  }))
+                };
+              }
+              return subtask;
+            });
+            
+            const allSubtasksCompleted = updatedSubtasks.every(subtask => subtask.completed);
+            
+            return {
+              ...task,
+              completed: allSubtasksCompleted,
+              subtasks: updatedSubtasks
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const toggleSubSubtaskCompletion = (taskId, subtaskId, subSubtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            const updatedSubtasks = task.subtasks.map(subtask => {
+              if (subtask.id === subtaskId) {
+                const updatedSubSubtasks = (subtask.sub_subtasks || []).map(subSubtask => {
+                  if (subSubtask.id === subSubtaskId) {
+                    return { ...subSubtask, completed: !subSubtask.completed };
+                  }
+                  return subSubtask;
+                });
+                
+                const allSubSubtasksCompleted = updatedSubSubtasks.every(subSubtask => subSubtask.completed);
+                
+                return {
+                  ...subtask,
+                  completed: allSubSubtasksCompleted && (subtask.sub_subtasks || []).length > 0,
+                  sub_subtasks: updatedSubSubtasks
+                };
+              }
+              return subtask;
+            });
+            
+            const allSubtasksCompleted = updatedSubtasks.every(subtask => subtask.completed);
+            
+            return {
+              ...task,
+              completed: allSubtasksCompleted,
+              subtasks: updatedSubtasks
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const toggleExpand = (taskId) => {
+        setExpandedTasks({
+          ...expandedTasks,
+          [taskId]: !expandedTasks[taskId]
+        });
+      };
+      
+      const toggleExpandSubtask = (subtaskId, event) => {
+        // Prevent the click from bubbling up to parent elements
+        if (event) {
+          event.stopPropagation();
+        }
+        
+        setExpandedSubtasks({
+          ...expandedSubtasks,
+          [subtaskId]: !expandedSubtasks[subtaskId]
+        });
+      };
+      
+      const deleteTask = (taskId) => {
+        setTasks(tasks.filter(task => task.id !== taskId));
+      };
+      
+      const deleteSubtask = (taskId, subtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.filter(subtask => subtask.id !== subtaskId)
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const deleteSubSubtask = (taskId, subtaskId, subSubtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => {
+                if (subtask.id === subtaskId) {
+                  return {
+                    ...subtask,
+                    sub_subtasks: (subtask.sub_subtasks || []).filter(
+                      subSubtask => subSubtask.id !== subSubtaskId
+                    )
+                  };
+                }
+                return subtask;
+              })
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const startEditingTask = (taskId) => {
+        setTasks(tasks.map(task => 
+          task.id === taskId ? { ...task, editing: true } : task
+        ));
+      };
+      
+      const startEditingSubtask = (taskId, subtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => 
+                subtask.id === subtaskId ? { ...subtask, editing: true } : subtask
+              )
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const startEditingSubSubtask = (taskId, subtaskId, subSubtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => {
+                if (subtask.id === subtaskId) {
+                  return {
+                    ...subtask,
+                    sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => 
+                      subSubtask.id === subSubtaskId ? { ...subSubtask, editing: true } : subSubtask
+                    )
+                  };
+                }
+                return subtask;
+              })
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const saveTaskEdit = (taskId, newText) => {
+        if (newText.trim() === "") return;
+        setTasks(tasks.map(task => 
+          task.id === taskId 
+            ? { ...task, text: newText.trim(), editing: false } 
+            : task
+        ));
+      };
+      
+      const saveSubtaskEdit = (taskId, subtaskId, newText) => {
+        if (newText.trim() === "") return;
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => 
+                subtask.id === subtaskId 
+                  ? { ...subtask, text: newText.trim(), editing: false } 
+                  : subtask
+              )
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const saveSubSubtaskEdit = (taskId, subtaskId, subSubtaskId, newText) => {
+        if (newText.trim() === "") return;
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => {
+                if (subtask.id === subtaskId) {
+                  return {
+                    ...subtask,
+                    sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => 
+                      subSubtask.id === subSubtaskId 
+                        ? { ...subSubtask, text: newText.trim(), editing: false } 
+                        : subSubtask
+                    )
+                  };
+                }
+                return subtask;
+              })
+            };
+          }
+          return task;
+        }));
+      };
+      
+      // Calculate task progress based on subtasks and sub-subtasks
+      const calculateTaskProgress = (task) => {
+        if (task.subtasks.length === 0) {
+          return task.completed ? 100 : 0;
+        }
+        
+        let totalItems = 0;
+        let completedItems = 0;
+        
+        // Count all subtasks and sub-subtasks
+        task.subtasks.forEach(subtask => {
+          totalItems++;
+          if (subtask.completed) completedItems++;
+          
+          const subSubtasks = subtask.sub_subtasks || [];
+          totalItems += subSubtasks.length;
+          completedItems += subSubtasks.filter(item => item.completed).length;
+        });
+        
+        return totalItems === 0 ? 0 : Math.round((completedItems / totalItems) * 100);
+      };
+      
+      return (
+        <div>
+          <div className="header">
+            <h2 style={{margin: 0}}>Todo List App</h2>
+            <div className="window-buttons">
+              <button>-</button>
+              <button>□</button>
+              <button>×</button>
+            </div>
+          </div>
+          
+          <div className="container">
+            <div className="add-task">
+              <input 
+                type="text" 
+                value={newTask}
+                onChange={(e) => setNewTask(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && addTask()}
+                placeholder="Add a new task..."
+              />
+              <button onClick={addTask}>Add</button>
+            </div>
+            
+            <div className="task-grid">
+              {tasks.map(task => {
+                const taskProgress = calculateTaskProgress(task);
+                
+                return (
+                <div key={task.id} className="task-card">
+                  <div className="task-header">
+                    <input 
+                      type="checkbox" 
+                      checked={task.completed}
+                      onChange={() => toggleTaskCompletion(task.id)}
+                    />
+                    {task.editing ? (
+                      <input 
+                        type="text" 
+                        defaultValue={task.text}
+                        className="task-text-edit"
+                        onBlur={(e) => saveTaskEdit(task.id, e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && saveTaskEdit(task.id, e.target.value)}
+                        autoFocus
+                      />
+                    ) : (
+                      <span 
+                        style={{marginLeft: "8px", flexGrow: 1}} 
+                        className={task.completed ? "completed" : ""}
+                      >
+                        {task.text}
+                      </span>
+                    )}
+                    <div className="action-buttons">
+                      {!task.editing && (
+                        <button onClick={() => startEditingTask(task.id)}>✏️</button>
+                      )}
+                      <button 
+                        onClick={() => toggleExpand(task.id)}
+                        style={{cursor: "pointer"}}
+                      >
+                        {expandedTasks[task.id] ? "▼" : "►"}
+                      </button>
+                      <button 
+                        onClick={() => deleteTask(task.id)}
+                        style={{color: "red"}}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Progress bar */}
+                  <div className="progress-container">
+                    <div 
+                      className="progress-bar" 
+                      style={{width: `${taskProgress}%`}}
+                    ></div>
+                  </div>
+                  <div className="progress-info">
+                    <span>Progress:</span>
+                    <span>{taskProgress}% completed</span>
+                  </div>
+                  
+                  {expandedTasks[task.id] && (
+                    <div className="task-content">
+                      {task.subtasks.length === 0 ? (
+                        <div style={{color: "#999", fontStyle: "italic", fontSize: "14px"}}>
+                          No subtasks yet
+                        </div>
+                      ) : (
+                        task.subtasks.map(subtask => (
+                          <div key={subtask.id} className="subtask nested-level">
+                            {/* Subtask header */}
+                            <div className="subtask-header">
+                              <input 
+                                type="checkbox" 
+                                checked={subtask.completed}
+                                onChange={() => toggleSubtaskCompletion(task.id, subtask.id)}
+                              />
+                              {subtask.editing ? (
+                                <input 
+                                  type="text" 
+                                  defaultValue={subtask.text}
+                                  className="task-text-edit"
+                                  onBlur={(e) => saveSubtaskEdit(task.id, subtask.id, e.target.value)}
+                                  onKeyPress={(e) => e.key === 'Enter' && saveSubtaskEdit(task.id, subtask.id, e.target.value)}
+                                  autoFocus
+                                />
+                              ) : (
+                                <span 
+                                  style={{marginLeft: "8px", flexGrow: 1}}
+                                  className={subtask.completed ? "completed" : ""}
+                                >
+                                  {subtask.text}
+                                </span>
+                              )}
+                              <div className="action-buttons">
+                                {!subtask.editing && (
+                                  <button onClick={() => startEditingSubtask(task.id, subtask.id)}>✏️</button>
+                                )}
+                                {/* Toggle expand button for subtasks with sub-subtasks */}
+                                {(subtask.sub_subtasks || []).length > 0 && (
+                                  <button 
+                                    onClick={(e) => toggleExpandSubtask(subtask.id, e)}
+                                    style={{cursor: "pointer"}}
+                                  >
+                                    {expandedSubtasks[subtask.id] ? "▼" : "►"}
+                                  </button>
+                                )}
+                                <button 
+                                  onClick={() => deleteSubtask(task.id, subtask.id)}
+                                  style={{color: "red"}}
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            </div>
+                            
+                            {/* Show sub-subtasks only if the subtask is expanded */}
+                            {(subtask.sub_subtasks || []).length > 0 && expandedSubtasks[subtask.id] && (
+                              <div className="sub-subtasks-container">
+                                {/* Sub-subtasks */}
+                                {(subtask.sub_subtasks || []).map(subSubtask => (
+                                  <div key={subSubtask.id} className="sub-subtask">
+                                    <input 
+                                      type="checkbox" 
+                                      checked={subSubtask.completed}
+                                      onChange={() => toggleSubSubtaskCompletion(task.id, subtask.id, subSubtask.id)}
+                                    />
+                                    {subSubtask.editing ? (
+                                      <input 
+                                        type="text" 
+                                        defaultValue={subSubtask.text}
+                                        className="task-text-edit"
+                                        onBlur={(e) => saveSubSubtaskEdit(task.id, subtask.id, subSubtask.id, e.target.value)}
+                                        onKeyPress={(e) => e.key === 'Enter' && saveSubSubtaskEdit(task.id, subtask.id, subSubtask.id, e.target.value)}
+                                        autoFocus
+                                      />
+                                    ) : (
+                                      <span 
+                                        style={{marginLeft: "8px", flexGrow: 1}}
+                                        className={subSubtask.completed ? "completed" : ""}
+                                      >
+                                        {subSubtask.text}
+                                      </span>
+                                    )}
+                                    <div className="action-buttons">
+                                      {!subSubtask.editing && (
+                                        <button onClick={() => startEditingSubSubtask(task.id, subtask.id, subSubtask.id)}>✏️</button>
+                                      )}
+                                      <button 
+                                        onClick={() => deleteSubSubtask(task.id, subtask.id, subSubtask.id)}
+                                        style={{color: "red"}}
+                                      >
+                                        ×
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            
+                            {/* Add sub-subtask input - only show if subtask is expanded */}
+                            {expandedSubtasks[subtask.id] && (
+                              <div className="add-sub-subtask">
+                                <input 
+                                  type="text" 
+                                  placeholder="Add a sub-subtask..." 
+                                  id={`sub-subtask-input-${task.id}-${subtask.id}`}
+                                  onKeyPress={(e) => {
+                                    if (e.key === 'Enter') {
+                                      const input = document.getElementById(`sub-subtask-input-${task.id}-${subtask.id}`);
+                                      addSubSubtask(task.id, subtask.id, input.value);
+                                      input.value = "";
+                                    }
+                                  }}
+                                />
+                                <button onClick={() => {
+                                  const input = document.getElementById(`sub-subtask-input-${task.id}-${subtask.id}`);
+                                  addSubSubtask(task.id, subtask.id, input.value);
+                                  input.value = "";
+                                }}>Add</button>
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      )}
+                      
+                      {/* Add subtask input */}
+                      <div className="add-subtask">
+                        <input 
+                          type="text" 
+                          placeholder="Add a subtask..." 
+                          id={`subtask-input-${task.id}`}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              const input = document.getElementById(`subtask-input-${task.id}`);
+                              addSubtask(task.id, input.value);
+                              input.value = "";
+                            }
+                          }}
+                        />
+                        <button onClick={() => {
+                          const input = document.getElementById(`subtask-input-${task.id}`);
+                          addSubtask(task.id, input.value);
+                          input.value = "";
+                        }}>Add</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )})}
+            </div>
+          </div>
+          
+          <div className="footer">
+            <div>Total tasks: {tasks.length}</div>
+            <div>Completed: {tasks.filter(task => task.completed).length}</div>
+            <div>Remaining: {tasks.filter(task => !task.completed).length}</div>
+          </div>
