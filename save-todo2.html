@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Enhanced Todo App</title>
+  <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      margin: 0; 
+      padding: 0; 
+      background-color: #f5f5f5;
+    }
+    .header {
+      background: #4a90e2;
+      color: white;
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .container {
+      padding: 20px;
+    }
+    .add-task {
+      margin-bottom: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .add-task input {
+      flex-grow: 1;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .add-task button {
+      padding: 8px 16px;
+      background-color: #4a90e2;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .task-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 15px;
+    }
+    .task-card {
+      background: white;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      overflow: hidden;
+      cursor: move; /* Indicates it's draggable */
+    }
+    .task-header {
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+      background-color: #f9f9f9;
+      display: flex;
+      align-items: center;
+    }
+    .task-content {
+      padding: 12px;
+    }
+    .subtask {
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      cursor: move; /* Indicates it's draggable */
+    }
+    .sub-subtask {
+      margin-left: 20px;
+      margin-top: 5px;
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+    }
+    .add-subtask, .add-sub-subtask {
+      margin-top: 10px;
+      display: flex;
+    }
+    .add-subtask input, .add-sub-subtask input {
+      flex-grow: 1;
+      padding: 6px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .add-subtask button, .add-sub-subtask button {
+      margin-left: 8px;
+      padding: 6px 12px;
+      background-color: #4a90e2;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .footer {
+      background: #ddd;
+      padding: 8px 20px;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .completed {
+      text-decoration: line-through;
+      color: #777;
+    }
+    .window-buttons button {
+      background: none;
+      border: none;
+      color: white;
+      cursor: pointer;
+      padding: 0 5px;
+      font-size: 16px;
+    }
+    .filters {
+      margin-bottom: 15px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .filter-button {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+    .filter-button.active {
+      background: #e6e6e6;
+      font-weight: bold;
+    }
+    .category-tag {
+      font-size: 12px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      margin-left: 8px;
+      color: white;
+    }
+    .category-select {
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+    }
+    .drag-over {
+      box-shadow: 0 0 10px rgba(0,0,255,0.3);
+    }
+    .dragging {
+      opacity: 0.5;
+    }
+    .edit-buttons {
+      display: flex;
+      gap: 4px;
+      margin-left: auto;
+    }
+    .edit-buttons button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      color: #666;
+    }
+    .edit-input {
+      flex-grow: 1;
+      padding: 5px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin-left: 5px;
+    }
+    /* Category colors */
+    .category-work { background-color: #F44336; }
+    .category-personal { background-color: #4CAF50; }
+    .category-shopping { background-color: #FF9800; }
+    .category-health { background-color: #3F51B5; }
+    .category-other { background-color: #9E9E9E; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const categoryOptions = [
+      { value: "work", label: "Work", color: "#F44336" },
+      { value: "personal", label: "Personal", color: "#4CAF50" },
+      { value: "shopping", label: "Shopping", color: "#FF9800" },
+      { value: "health", label: "Health", color: "#3F51B5" },
+      { value: "other", label: "Other", color: "#9E9E9E" }
+    ];
+    
+    const TodoApp = () => {
+      // Load tasks from localStorage on initial render
+      const [tasks, setTasks] = React.useState(() => {
+        try {
+          const savedTasks = localStorage.getItem('tasks');
+          return savedTasks ? JSON.parse(savedTasks) : [
+            { 
+              id: 1, 
+              text: "Example task", 
+              completed: false, 
+              category
