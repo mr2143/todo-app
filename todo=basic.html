@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Basic Todo App</title>
+  <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const TodoApp = () => {
+      const [tasks, setTasks] = React.useState([
+        { id: 1, text: "Sample task", completed: false }
+      ]);
+      const [newTaskText, setNewTaskText] = React.useState("");
+      
+      const addTask = () => {
+        if (newTaskText.trim() === '') return;
+        
+        const newTask = {
+          id: Date.now(),
+          text: newTaskText,
+          completed: false
+        };
+        
+        setTasks([...tasks, newTask]);
+        setNewTaskText('');
+      };
+      
+      const toggleTaskCompletion = (taskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return { ...task, completed: !task.completed };
+          }
+          return task;
+        }));
+      };
+      
+      return (
+        <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded shadow">
+          <h1 className="text-2xl font-bold text-center mb-6">Todo App</h1>
+          
+          <div className="flex mb-4">
+            <input
+              type="text"
+              value={newTaskText}
+              onChange={(e) => setNewTaskText(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && addTask()}
+              placeholder="Add a new task..."
+              className="flex-1 p-2 border rounded"
+            />
+            <button 
+              onClick={addTask}
+              className="ml-2 bg-blue-500 text-white px-4 py-2 rounded"
+            >
+              Add
+            </button>
+          </div>
+          
+          <ul className="space-y-2">
+            {tasks.map(task => (
+              <li key={task.id} className="flex items-center p-2 border rounded">
+                <input
+                  type="checkbox"
+                  checked={task.completed}
+                  onChange={() => toggleTaskCompletion(task.id)}
+                  className="mr-2"
+                />
+                <span className={task.completed ? "line-through text-gray-500" : ""}>
+                  {task.text}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      );
+    };
+    
+    ReactDOM.render(<TodoApp />, document.getElementById('root'));
+  </script>
+</body>
+</html>
