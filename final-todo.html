@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Todo App with Subtasks</title>
+  <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    // Simple version without localStorage or complex state
+    const TodoApp = () => {
+      // Start with a simple task array - no localStorage
+      const [tasks, setTasks] = React.useState([
+        { id: 1, text: "Example task", completed: false, subtasks: [] }
+      ]);
+      const [newTaskText, setNewTaskText] = React.useState("");
+      const [newSubtaskText, setNewSubtaskText] = React.useState("");
+      const [expandedTasks, setExpandedTasks] = React.useState({1: true});
+      
+      // Just the core functions
+      const addTask = () => {
+        if (newTaskText.trim() === '') return;
+        setTasks([...tasks, {
+          id: Date.now(),
+          text: newTaskText,
+          completed: false,
+          subtasks: []
+        }]);
+        setNewTaskText('');
+      };
+      
+      const addSubtask = (taskId) => {
+        if (newSubtaskText.trim() === '') return;
+        setTasks(tasks.map(task => 
+          task.id === taskId 
+            ? {...task, subtasks: [...task.subtasks, {id: Date.now(), text: newSubtaskText, completed: false}]} 
+            : task
+        ));
+        setNewSubtaskText('');
+      };
+      
+      const toggleExpansion = (id) => {
+        setExpandedTasks({...expandedTasks, [id]: !expandedTasks[id]});
+      };
+      
+      // Simple UI
+      return (
+        <div className="max-w-md mx-auto p-4 mt-4 bg-white rounded shadow">
+          <h1 className="text-xl font-bold mb-4">Todo List</h1>
+          
+          {/* Add task */}
+          <div className="flex mb-4">
+            <input
+              value={newTaskText}
+              onChange={(e) => setNewTaskText(e.target.value)}
+              className="flex-1 border p-2 rounded"
+              placeholder="Add new task"
+            />
+            <button 
+              onClick={addTask}
+              className="ml-2 bg-blue-500 text-white px-3 py-2 rounded"
+            >
+              Add
+            </button>
+          </div>
+          
+          {/* Task list */}
+          <div className="space-y-2">
+            {tasks.map(task => (
+              <div key={task.id} className="border rounded">
+                <div className="p-2 flex items-center">
+                  <span>{task.text}</span>
+                  <button 
+                    onClick={() => toggleExpansion(task.id)}
+                    className="ml-auto px-2"
+                  >
+                    {expandedTasks[task.id] ? "▼" : "►"}
+                  </button>
+                </div>
+                
+                {expandedTasks[task.id] && (
+                  <div className="p-2 pl-6 border-t bg-gray-50">
+                    {/* Subtasks */}
+                    <div className="mb-2">
+                      {task.subtasks.map(subtask => (
+                        <div key={subtask.id} className="py-1">
+                          - {subtask.text}
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Add subtask */}
+                    <div className="flex">
+                      <input
+                        value={newSubtaskText}
+                        onChange={(e) => setNewSubtaskText(e.target.value)}
+                        className="flex-1 border p-1 rounded text-sm"
+                        placeholder="Add subtask"
+                      />
+                      <button
+                        onClick={() => addSubtask(task.id)}
+                        className="ml-2 bg-blue-400 text-white px-2 py-1 text-sm rounded"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    };
+    
+    ReactDOM.render(<TodoApp />, document.getElementById('root'));
+  </script>
+</body>
+</html>
