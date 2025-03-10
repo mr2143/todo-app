@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Enhanced Todo App</title>
+  <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      margin: 0; 
+      padding: 0; 
+      background-color: #f5f5f5;
+    }
+    .header {
+      background: #4a90e2;
+      color: white;
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .container {
+      padding: 20px;
+    }
+    .add-task {
+      margin-bottom: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .add-task input {
+      flex-grow: 1;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .add-task button {
+      padding: 8px 16px;
+      background-color: #4a90e2;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .task-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 15px;
+    }
+    .task-card {
+      background: white;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      overflow: hidden;
+      cursor: move; /* Indicates it's draggable */
+    }
+    .task-header {
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+      background-color: #f9f9f9;
+      display: flex;
+      align-items: center;
+    }
+    .task-content {
+      padding: 12px;
+    }
+    .subtask {
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      cursor: move; /* Indicates it's draggable */
+    }
+    .add-subtask {
+      margin-top: 10px;
+      display: flex;
+    }
+    .add-subtask input {
+      flex-grow: 1;
+      padding: 6px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .add-subtask button {
+      margin-left: 8px;
+      padding: 6px 12px;
+      background-color: #4a90e2;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .footer {
+      background: #ddd;
+      padding: 8px 20px;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .completed {
+      text-decoration: line-through;
+      color: #777;
+    }
+    .window-buttons button {
+      background: none;
+      border: none;
+      color: white;
+      cursor: pointer;
+      padding: 0 5px;
+      font-size: 16px;
+    }
+    .filters {
+      margin-bottom: 15px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .filter-button {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+    .filter-button.active {
+      background: #e6e6e6;
+      font-weight: bold;
+    }
+    .category-tag {
+      font-size: 12px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      margin-left: 8px;
+      color: white;
+    }
+    .category-select {
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+    }
+    .drag-over {
+      box-shadow: 0 0 10px rgba(0,0,255,0.3);
+    }
+    .dragging {
+      opacity: 0.5;
+    }
+    /* Category colors */
+    .category-work { background-color: #F44336; }
+    .category-personal { background-color: #4CAF50; }
+    .category-shopping { background-color: #FF9800; }
+    .category-health { background-color: #3F51B5; }
+    .category-other { background-color: #9E9E9E; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const categoryOptions = [
+      { value: "work", label: "Work", color: "#F44336" },
+      { value: "personal", label: "Personal", color: "#4CAF50" },
+      { value: "shopping", label: "Shopping", color: "#FF9800" },
+      { value: "health", label: "Health", color: "#3F51B5" },
+      { value: "other", label: "Other", color: "#9E9E9E" }
+    ];
+    
+    const TodoApp = () => {
+      // Load tasks from localStorage on initial render
+      const [tasks, setTasks] = React.useState(() => {
+        try {
+          const savedTasks = localStorage.getItem('tasks');
+          return savedTasks ? JSON.parse(savedTasks) : [
+            { 
+              id: 1, 
+              text: "Example task", 
+              completed: false, 
+              category: "work",
+              subtasks: [
+                { id: 11, text: "Example subtask", completed: false }
+              ]
+            }
+          ];
+        } catch (error) {
+          console.error("Error loading from localStorage:", error);
+          return [
+            { 
+              id: 1, 
+              text: "Example task", 
+              completed: false, 
+              category: "work",
+              subtasks: [
+                { id: 11, text: "Example subtask", completed: false }
+              ]
+            }
+          ];
+        }
+      });
+      
+      const [newTask, setNewTask] = React.useState("");
+      const [newTaskCategory, setNewTaskCategory] = React.useState("work");
+      const [activeFilter, setActiveFilter] = React.useState("all");
+      const [draggedTask, setDraggedTask] = React.useState(null);
+      const [draggedSubtask, setDraggedSubtask] = React.useState(null);
+      const [draggedSubtaskParent, setDraggedSubtaskParent] = React.useState(null);
+      
+      // Load expanded state from localStorage
+      const [expandedTasks, setExpandedTasks] = React.useState(() => {
+        try {
+          const savedExpanded = localStorage.getItem('expandedTasks');
+          return savedExpanded ? JSON.parse(savedExpanded) : {1: true};
+        } catch (error) {
+          console.error("Error loading expanded state:", error);
+          return {1: true};
+        }
+      });
+      
+      // Save tasks to localStorage whenever they change
+      React.useEffect(() => {
+        try {
+          localStorage.setItem('tasks', JSON.stringify(tasks));
+        } catch (error) {
+          console.error("Error saving to localStorage:", error);
+        }
+      }, [tasks]);
+      
+      // Save expanded state to localStorage
+      React.useEffect(() => {
+        try {
+          localStorage.setItem('expandedTasks', JSON.stringify(expandedTasks));
+        } catch (error) {
+          console.error("Error saving expanded state:", error);
+        }
+      }, [expandedTasks]);
+      
+      const addTask = () => {
+        if (newTask.trim() === "") return;
+        const newTaskObj = {
+          id: Date.now(),
+          text: newTask,
+          completed: false,
+          category: newTaskCategory,
+          subtasks: []
+        };
+        setTasks([...tasks, newTaskObj]);
+        setNewTask("");
+      };
+      
+      const addSubtask = (taskId, subtaskText) => {
+        if (subtaskText.trim() === "") return;
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: [...task.subtasks, {
+                id: Date.now(),
+                text: subtaskText,
+                completed: false
+              }]
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const toggleTaskCompletion = (taskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            const newCompletedState = !task.completed;
+            return {
+              ...task,
+              completed: newCompletedState,
+              subtasks: task.subtasks.map(subtask => ({
+                ...subtask,
+                completed: newCompletedState ? true : subtask.completed
+              }))
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const toggleSubtaskCompletion = (taskId, subtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            const updatedSubtasks = task.subtasks.map(subtask => {
+              if (subtask.id === subtaskId) {
+                return { ...subtask, completed: !subtask.completed };
+              }
+              return subtask;
+            });
+            
+            const allSubtasksCompleted = updatedSubtasks.every(subtask => subtask.completed);
+            
+            return {
+              ...task,
+              completed: allSubtasksCompleted,
+              subtasks: updatedSubtasks
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const toggleExpand = (taskId) => {
+        setExpandedTasks({
+          ...expandedTasks,
+          [taskId]: !expandedTasks[taskId]
+        });
+      };
+      
+      const deleteTask = (taskId) => {
+        setTasks(tasks.filter(task => task.id !== taskId));
+      };
+      
+      const deleteSubtask = (taskId, subtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.filter(subtask => subtask.id !== subtaskId)
+            };
+          }
+          return task;
+        }));
+      };
+      
+      // Drag and drop handlers for tasks
+      const handleTaskDragStart = (taskId) => {
+        setDraggedTask(taskId);
+      };
+      
+      const handleTaskDragOver = (e, targetTaskId) => {
+        e.preventDefault();
+        if (draggedTask && draggedTask !== targetTaskId) {
+          e.currentTarget.classList.add("drag-over");
+        }
+      };
+      
+      const handleTaskDragLeave = (e) => {
+        e.currentTarget.classList.remove("drag-over");
+      };
+      
+      const handleTaskDrop = (e, targetTaskId) => {
+        e.preventDefault();
+        e.currentTarget.classList.remove("drag-over");
+        
+        if (draggedTask && draggedTask !== targetTaskId) {
+          const reorderedTasks = [...tasks];
+          const draggedTaskIndex = reorderedTasks.findIndex(task => task.id === draggedTask);
+          const targetTaskIndex = reorderedTasks.findIndex(task => task.id === targetTaskId);
+          
+          const [removedTask] = reorderedTasks.splice(draggedTaskIndex, 1);
+          reorderedTasks.splice(targetTaskIndex, 0, removedTask);
+          
+          setTasks(reorderedTasks);
+        }
+        
+        setDraggedTask(null);
+      };
+      
+      // Drag and drop handlers for subtasks
+      const handleSubtaskDragStart = (taskId, subtaskId) => {
+        setDraggedSubtask(subtaskId);
+        setDraggedSubtaskParent(taskId);
+      };
+      
+      const handleSubtaskDragOver = (e, taskId) => {
+        e.preventDefault();
+        if (draggedSubtask) {
+          e.currentTarget.classList.add("drag-over");
+        }
+      };
+      
+      const handleSubtaskDragLeave = (e) => {
+        e.currentTarget.classList.remove("drag-over");
+      };
+      
+      const handleSubtaskDrop = (e, targetTaskId) => {
+        e.preventDefault();
+        e.currentTarget.classList.remove("drag-over");
+        
+        if (draggedSubtask && draggedSubtaskParent) {
+          // Get the subtask from the source task
+          const sourceTask = tasks.find(task => task.id === draggedSubtaskParent);
+          const subtask = sourceTask.subtasks.find(sub => sub.id === draggedSubtask);
+          
+          if (sourceTask && subtask) {
+            // Create a new array of tasks with the subtask moved
+            const updatedTasks = tasks.map(task => {
+              if (task.id === draggedSubtaskParent) {
+                // Remove subtask from source task
+                return {
+                  ...task,
+                  subtasks: task.subtasks.filter(sub => sub.id !== draggedSubtask)
+                };
+              } else if (task.id === targetTaskId) {
+                // Add subtask to target task
+                return {
+                  ...task,
+                  subtasks: [...task.subtasks, subtask]
+                };
+              }
+              return task;
+            });
+            
+            setTasks(updatedTasks);
+          }
+        }
+        
+        setDraggedSubtask(null);
+        setDraggedSubtaskParent(null);
+      };
+      
+      // Filter tasks by category
+      const filteredTasks = tasks.filter(task => {
+        if (activeFilter === 'all') return true;
+        if (activeFilter === 'completed') return task.completed;
+        if (activeFilter === 'active') return !task.completed;
+        return task.category === activeFilter;
+      });
+      
+      return (
+        <div>
+          <div className="header">
+            <h2 style={{margin: 0}}>Todo List App</h2>
+            <div className="window-buttons">
+              <button>-</button>
+              <button>□</button>
+              <button>×</button>
+            </div>
+          </div>
+          
+          <div className="container">
+            <div className="add-task">
+              <input 
+                type="text" 
+                value={newTask}
+                onChange={(e) => setNewTask(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && addTask()}
+                placeholder="Add a new task..."
+              />
+              <select 
+                className="category-select"
+                value={newTaskCategory} 
+                onChange={(e) => setNewTaskCategory(e.target.value)}
+              >
+                {categoryOptions.map(category => (
+                  <option key={category.value} value={category.value}>
+                    {category.label}
+                  </option>
+                ))}
+              </select>
+              <button onClick={addTask}>Add Task</button>
+            </div>
+            
+            <div className="filters">
+              <button 
+                className={`filter-button ${activeFilter === 'all' ? 'active' : ''}`}
+                onClick={() => setActiveFilter('all')}
+              >
+                All
+              </button>
+              <button 
+                className={`filter-button ${activeFilter === 'active' ? 'active' : ''}`}
+                onClick={() => setActiveFilter('active')}
+              >
+                Active
+              </button>
+              <button 
+                className={`filter-button ${activeFilter === 'completed' ? 'active' : ''}`}
+                onClick={() => setActiveFilter('completed')}
+              >
+                Completed
+              </button>
+              {categoryOptions.map(category => (
+                <button 
+                  key={category.value}
+                  className={`filter-button ${activeFilter === category.value ? 'active' : ''}`}
+                  onClick={() => setActiveFilter(category.value)}
+                  style={{borderLeft: `4px solid ${category.color}`}}
+                >
+                  {category.label}
+                </button>
+              ))}
+            </div>
+            
+            <div className="task-grid">
+              {filteredTasks.map(task => (
+                <div 
+                  key={task.id} 
+                  className={`task-card ${draggedTask === task.id ? 'dragging' : ''}`}
+                  draggable
+                  onDragStart={() => handleTaskDragStart(task.id)}
+                  onDragOver={(e) => handleTaskDragOver(e, task.id)}
+                  onDragLeave={handleTaskDragLeave}
+                  onDrop={(e) => handleTaskDrop(e, task.id)}
+                >
+                  <div className="task-header">
+                    <input 
+                      type="checkbox" 
+                      checked={task.completed}
+                      onChange={() => toggleTaskCompletion(task.id)}
+                    />
+                    <span 
+                      style={{marginLeft: "8px", flexGrow: 1}} 
+                      className={task.completed ? "completed" : ""}
+                    >
+                      {task.text}
+                    </span>
+                    <span className={`category-tag category-${task.category}`}>
+                      {categoryOptions.find(c => c.value === task.category)?.label}
+                    </span>
+                    <button 
+                      onClick={() => toggleExpand(task.id)}
+                      style={{background: "none", border: "none", cursor: "pointer"}}
+                    >
+                      {expandedTasks[task.id] ? "▼" : "►"}
+                    </button>
+                    <button 
+                      onClick={() => deleteTask(task.id)}
+                      style={{background: "none", border: "none", color: "red", cursor: "pointer"}}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  
+                  {expandedTasks[task.id] && (
+                    <div 
+                      className="task-content"
+                      onDragOver={(e) => handleSubtaskDragOver(e, task.id)}
+                      onDragLeave={handleSubtaskDragLeave}
+                      onDrop={(e) => handleSubtaskDrop(e, task.id)}
+                    >
+                      {task.subtasks.length === 0 ? (
+                        <div style={{color: "#999", fontStyle: "italic", fontSize: "14px"}}>
+                          No subtasks yet
+                        </div>
+                      ) : (
+                        task.subtasks.map(subtask => (
+                          <div 
+                            key={subtask.id} 
+                            className={`subtask ${draggedSubtask === subtask.id ? 'dragging' : ''}`}
+                            draggable
+                            onDragStart={() => handleSubtaskDragStart(task.id, subtask.id)}
+                          >
+                            <input 
+                              type="checkbox" 
+                              checked={subtask.completed}
+                              onChange={() => toggleSubtaskCompletion(task.id, subtask.id)}
+                            />
+                            <span 
+                              style={{marginLeft: "8px", flexGrow: 1}}
+                              className={subtask.completed ? "completed" : ""}
+                            >
+                              {subtask.text}
+                            </span>
+                            <button
+                              onClick={() => deleteSubtask(task.id, subtask.id)}
+                              style={{background: "none", border: "none", color: "red", cursor: "pointer"}}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))
+                      )}
+                      
+                      <div className="add-subtask">
+                        <input 
+                          type="text" 
+                          placeholder="Add a subtask..." 
+                          id={`subtask-input-${task.id}`}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              const input = document.getElementById(`subtask-input-${task.id}`);
+                              addSubtask(task.id, input.value);
+                              input.value = "";
+                            }
+                          }}
+                        />
+                        <button onClick={() => {
+                          const input = document.getElementById(`subtask-input-${task.id}`);
+                          addSubtask(task.id, input.value);
+                          input.value = "";
+                        }}>Add</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <div className="footer">
+            <div>Total tasks: {tasks.length}</div>
+            <div>Completed: {tasks.filter(task => task.completed).length}</div>
+            <div>Remaining: {tasks.filter(task => !task.completed).length}</div>
+          </div>
+        </div>
+      );
+    };
+    
+    ReactDOM.render(<TodoApp />, document.getElementById('root'));
+  </script>
+</body>
+</html>
