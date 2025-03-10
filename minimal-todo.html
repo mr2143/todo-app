@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Simple Todo App</title>
+  <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+    .task { border: 1px solid #ccc; margin-bottom: 10px; padding: 10px; border-radius: 5px; }
+    .subtask { margin-left: 20px; margin-top: 5px; }
+    .header { background: #4a90e2; color: white; padding: 10px; margin: -20px -20px 20px -20px; }
+    button { margin-left: 5px; }
+    input[type="text"] { padding: 5px; width: 70%; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const TodoApp = () => {
+      const [tasks, setTasks] = React.useState([
+        { id: 1, text: "Example task", completed: false, subtasks: [
+          { id: 11, text: "Example subtask", completed: false }
+        ]}
+      ]);
+      const [newTask, setNewTask] = React.useState("");
+      
+      const addTask = () => {
+        if (newTask.trim() === "") return;
+        const newTaskObj = {
+          id: Date.now(),
+          text: newTask,
+          completed: false,
+          subtasks: []
+        };
+        setTasks([...tasks, newTaskObj]);
+        setNewTask("");
+      };
+      
+      const addSubtask = (taskId, subtaskText) => {
+        if (subtaskText.trim() === "") return;
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: [...task.subtasks, {
+                id: Date.now(),
+                text: subtaskText,
+                completed: false
+              }]
+            };
+          }
+          return task;
+        }));
+      };
+      
+      return (
+        <div>
+          <div className="header">
+            <h1>Todo App</h1>
+          </div>
+          
+          <div>
+            <input 
+              type="text" 
+              value={newTask}
+              onChange={(e) => setNewTask(e.target.value)}
+              placeholder="Add a task"
+            />
+            <button onClick={addTask}>Add</button>
+          </div>
+          
+          <div style={{marginTop: "20px"}}>
+            {tasks.map(task => (
+              <div key={task.id} className="task">
+                <div>
+                  <input 
+                    type="checkbox" 
+                    checked={task.completed}
+                    onChange={() => {
+                      setTasks(tasks.map(t => 
+                        t.id === task.id ? {...t, completed: !t.completed} : t
+                      ));
+                    }}
+                  />
+                  <span style={{marginLeft: "5px"}}>{task.text}</span>
+                </div>
+                
+                <div style={{marginTop: "10px"}}>
+                  {task.subtasks.map(subtask => (
+                    <div key={subtask.id} className="subtask">
+                      <input 
+                        type="checkbox" 
+                        checked={subtask.completed}
+                        onChange={() => {
+                          setTasks(tasks.map(t => {
+                            if (t.id === task.id) {
+                              return {
+                                ...t,
+                                subtasks: t.subtasks.map(s => 
+                                  s.id === subtask.id ? {...s, completed: !s.completed} : s
+                                )
+                              };
+                            }
+                            return t;
+                          }));
+                        }}
+                      />
+                      <span style={{marginLeft: "5px"}}>{subtask.text}</span>
+                    </div>
+                  ))}
+                </div>
+                
+                <div style={{marginTop: "10px"}}>
+                  <input 
+                    type="text" 
+                    placeholder="Add a subtask" 
+                    id={`subtask-input-${task.id}`}
+                  />
+                  <button onClick={() => {
+                    const input = document.getElementById(`subtask-input-${task.id}`);
+                    addSubtask(task.id, input.value);
+                    input.value = "";
+                  }}>Add</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    };
+    
+    ReactDOM.render(<TodoApp />, document.getElementById('root'));
+  </script>
+</body>
+</html>
