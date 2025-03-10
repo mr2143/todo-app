@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Column-Based Todo App</title>
+  <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      margin: 0; 
+      padding: 0; 
+      background-color: #f5f5f5;
+    }
+    .header {
+      background: #4a90e2;
+      color: white;
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .container {
+      padding: 20px;
+    }
+    .add-task {
+      margin-bottom: 20px;
+      display: flex;
+    }
+    .add-task input {
+      flex-grow: 1;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .add-task button {
+      margin-left: 8px;
+      padding: 8px 16px;
+      background-color: #4a90e2;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .task-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 15px;
+    }
+    .task-card {
+      background: white;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    .task-header {
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+      background-color: #f9f9f9;
+      display: flex;
+      align-items: center;
+    }
+    .task-content {
+      padding: 12px;
+    }
+    .subtask {
+      margin-bottom: 8px;
+    }
+    .add-subtask {
+      margin-top: 10px;
+      display: flex;
+    }
+    .add-subtask input {
+      flex-grow: 1;
+      padding: 6px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .add-subtask button {
+      margin-left: 8px;
+      padding: 6px 12px;
+      background-color: #4a90e2;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .footer {
+      background: #ddd;
+      padding: 8px 20px;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .completed {
+      text-decoration: line-through;
+      color: #777;
+    }
+    .window-buttons button {
+      background: none;
+      border: none;
+      color: white;
+      cursor: pointer;
+      padding: 0 5px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const TodoApp = () => {
+      const [tasks, setTasks] = React.useState([
+        { id: 1, text: "Example task", completed: false, subtasks: [
+          { id: 11, text: "Example subtask", completed: false }
+        ]}
+      ]);
+      const [newTask, setNewTask] = React.useState("");
+      const [expandedTasks, setExpandedTasks] = React.useState({1: true});
+      
+      const addTask = () => {
+        if (newTask.trim() === "") return;
+        const newTaskObj = {
+          id: Date.now(),
+          text: newTask,
+          completed: false,
+          subtasks: []
+        };
+        setTasks([...tasks, newTaskObj]);
+        setNewTask("");
+      };
+      
+      const addSubtask = (taskId, subtaskText) => {
+        if (subtaskText.trim() === "") return;
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: [...task.subtasks, {
+                id: Date.now(),
+                text: subtaskText,
+                completed: false
+              }]
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const toggleTaskCompletion = (taskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            const newCompletedState = !task.completed;
+            return {
+              ...task,
+              completed: newCompletedState,
+              subtasks: task.subtasks.map(subtask => ({
+                ...subtask,
+                completed: newCompletedState ? true : subtask.completed
+              }))
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const toggleSubtaskCompletion = (taskId, subtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            const updatedSubtasks = task.subtasks.map(subtask => {
+              if (subtask.id === subtaskId) {
+                return { ...subtask, completed: !subtask.completed };
+              }
+              return subtask;
+            });
+            
+            const allSubtasksCompleted = updatedSubtasks.every(subtask => subtask.completed);
+            
+            return {
+              ...task,
+              completed: allSubtasksCompleted,
+              subtasks: updatedSubtasks
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const toggleExpand = (taskId) => {
+        setExpandedTasks({
+          ...expandedTasks,
+          [taskId]: !expandedTasks[taskId]
+        });
+      };
+      
+      const deleteTask = (taskId) => {
+        setTasks(tasks.filter(task => task.id !== taskId));
+      };
+      
+      return (
+        <div>
+          <div className="header">
+            <h2 style={{margin: 0}}>Todo List App</h2>
+            <div className="window-buttons">
+              <button>-</button>
+              <button>□</button>
+              <button>×</button>
+            </div>
+          </div>
+          
+          <div className="container">
+            <div className="add-task">
+              <input 
+                type="text" 
+                value={newTask}
+                onChange={(e) => setNewTask(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && addTask()}
+                placeholder="Add a new task..."
+              />
+              <button onClick={addTask}>Add</button>
+            </div>
+            
+            <div className="task-grid">
+              {tasks.map(task => (
+                <div key={task.id} className="task-card">
+                  <div className="task-header">
+                    <input 
+                      type="checkbox" 
+                      checked={task.completed}
+                      onChange={() => toggleTaskCompletion(task.id)}
+                    />
+                    <span 
+                      style={{marginLeft: "8px", flexGrow: 1}} 
+                      className={task.completed ? "completed" : ""}
+                    >
+                      {task.text}
+                    </span>
+                    <button 
+                      onClick={() => toggleExpand(task.id)}
+                      style={{background: "none", border: "none", cursor: "pointer"}}
+                    >
+                      {expandedTasks[task.id] ? "▼" : "►"}
+                    </button>
+                    <button 
+                      onClick={() => deleteTask(task.id)}
+                      style={{background: "none", border: "none", color: "red", cursor: "pointer"}}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  
+                  {expandedTasks[task.id] && (
+                    <div className="task-content">
+                      {task.subtasks.length === 0 ? (
+                        <div style={{color: "#999", fontStyle: "italic", fontSize: "14px"}}>
+                          No subtasks yet
+                        </div>
+                      ) : (
+                        task.subtasks.map(subtask => (
+                          <div key={subtask.id} className="subtask">
+                            <input 
+                              type="checkbox" 
+                              checked={subtask.completed}
+                              onChange={() => toggleSubtaskCompletion(task.id, subtask.id)}
+                            />
+                            <span 
+                              style={{marginLeft: "8px"}}
+                              className={subtask.completed ? "completed" : ""}
+                            >
+                              {subtask.text}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                      
+                      <div className="add-subtask">
+                        <input 
+                          type="text" 
+                          placeholder="Add a subtask..." 
+                          id={`subtask-input-${task.id}`}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              const input = document.getElementById(`subtask-input-${task.id}`);
+                              addSubtask(task.id, input.value);
+                              input.value = "";
+                            }
+                          }}
+                        />
+                        <button onClick={() => {
+                          const input = document.getElementById(`subtask-input-${task.id}`);
+                          addSubtask(task.id, input.value);
+                          input.value = "";
+                        }}>Add</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <div className="footer">
+            <div>Total tasks: {tasks.length}</div>
+            <div>Completed: {tasks.filter(task => task.completed).length}</div>
+            <div>Remaining: {tasks.filter(task => !task.completed).length}</div>
+          </div>
+        </div>
+      );
+    };
+    
+    ReactDOM.render(<TodoApp />, document.getElementById('root'));
+  </script>
+</body>
+</html>
