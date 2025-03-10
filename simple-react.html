@@ -1,20 +1,31 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Simple React Test</title>
+  <title>Basic Todo Structure</title>
   <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
 <body>
   <div id="root"></div>
   
   <script type="text/babel">
-    const App = () => {
-      return <h1>Simple React App Works!</h1>;
+    const TodoApp = () => {
+      const [tasks, setTasks] = React.useState([]);
+      
+      return (
+        <div className="p-4">
+          <h1 className="text-2xl font-bold text-blue-600">Todo App</h1>
+          <p>This is a basic version of the todo app.</p>
+          <button className="mt-2 bg-blue-500 text-white px-4 py-2 rounded">
+            Test Button
+          </button>
+        </div>
+      );
     };
     
-    ReactDOM.render(<App />, document.getElementById('root'));
+    ReactDOM.render(<TodoApp />, document.getElementById('root'));
   </script>
 </body>
 </html>
