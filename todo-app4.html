@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Enhanced Column-Based Todo App</title>
+  <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  <!-- Add react-beautiful-dnd for drag and drop functionality -->
+  <script src="https://unpkg.com/react-beautiful-dnd@13.1.0/dist/react-beautiful-dnd.min.js"></script>
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      margin: 0; 
+      padding: 0; 
+      background-color: #f5f5f5;
+    }
+    .header {
+      background: #4a90e2;
+      color: white;
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header-controls {
+      display: flex;
+      align-items: center;
+    }
+    .undo-redo-buttons {
+      margin-right: 20px;
+    }
+    .undo-redo-buttons button {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 5px 10px;
+      margin-right: 5px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .undo-redo-buttons button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .undo-redo-buttons button:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.3);
+    }
+    .container {
+      padding: 20px;
+    }
+    .add-task {
+      margin-bottom: 20px;
+      display: flex;
+    }
+    .add-task input {
+      flex-grow: 1;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .add-task button {
+      margin-left: 8px;
+      padding: 8px 16px;
+      background-color: #4a90e2;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .task-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 15px;
+    }
+    .task-card {
+      background: white;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    .task-header {
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+      background-color: #f9f9f9;
+      display: flex;
+      align-items: center;
+    }
+    .priority-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+    .priority-high {
+      background-color: #e74c3c;
+    }
+    .priority-medium {
+      background-color: #f39c12;
+    }
+    .priority-low {
+      background-color: #27ae60;
+    }
+    .priority-none {
+      background-color: #bdc3c7;
+    }
+    .task-content {
+      padding: 12px;
+    }
+    .subtask {
+      margin-bottom: 12px;
+      display: flex;
+      align-items: flex-start;
+      flex-direction: column;
+    }
+    .subtask-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .sub-subtask {
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      padding-left: 24px;
+      width: calc(100% - 24px);
+      border-left: 2px solid #eee;
+    }
+    .sub-subtasks-container {
+      width: 100%;
+      margin-top: 4px;
+      margin-bottom: 8px;
+    }
+    .add-subtask, .add-sub-subtask {
+      margin-top: 10px;
+      display: flex;
+      width: 100%;
+    }
+    .add-subtask input, .add-sub-subtask input {
+      flex-grow: 1;
+      padding: 6px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .add-subtask button, .add-sub-subtask button {
+      margin-left: 8px;
+      padding: 6px 12px;
+      background-color: #4a90e2;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .footer {
+      background: #ddd;
+      padding: 8px 20px;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .completed {
+      text-decoration: line-through;
+      color: #777;
+    }
+    .window-buttons button {
+      background: none;
+      border: none;
+      color: white;
+      cursor: pointer;
+      padding: 0 5px;
+      font-size: 16px;
+    }
+    .task-text-edit {
+      flex-grow: 1;
+      margin-left: 8px;
+      padding: 4px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .action-buttons {
+      display: flex;
+      align-items: center;
+      margin-left: 8px;
+    }
+    .action-buttons button {
+      background: none;
+      border: none;
+      color: #666;
+      cursor: pointer;
+      padding: 0 5px;
+    }
+    .action-buttons button:hover {
+      color: #333;
+    }
+    .nested-level {
+      margin-left: 20px;
+    }
+    .add-sub-subtask {
+      padding-left: 24px;
+      width: calc(100% - 24px);
+    }
+    .draggable-item {
+      cursor: grab;
+    }
+    .draggable-item:active {
+      cursor: grabbing;
+    }
+    .drag-handle {
+      color: #aaa;
+      margin-right: 8px;
+      cursor: grab;
+    }
+    .drag-handle:hover {
+      color: #666;
+    }
+    .priority-selector {
+      display: flex;
+      align-items: center;
+      margin-left: 8px;
+    }
+    .priority-selector button {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      margin-left: 4px;
+      border: 1px solid #ccc;
+      cursor: pointer;
+    }
+    .priority-selector button.high {
+      background-color: #e74c3c;
+    }
+    .priority-selector button.medium {
+      background-color: #f39c12;
+    }
+    .priority-selector button.low {
+      background-color: #27ae60;
+    }
+    .priority-selector button.none {
+      background-color: #bdc3c7;
+    }
+    /* Droppable area styling */
+    .droppable-container {
+      transition: background-color 0.2s ease;
+    }
+    .droppable-container.isDraggingOver {
+      background-color: rgba(74, 144, 226, 0.1);
+    }
+    /* Draggable item styles */
+    .task-item {
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .task-item.isDragging {
+      box-shadow: 0 5px 10px rgba(0,0,0,0.2);
+      transform: translateY(-2px);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    // Destructure react-beautiful-dnd
+    const { DragDropContext, Droppable, Draggable } = ReactBeautifulDnd;
+    
+    const TodoApp = () => {
+      // Load tasks from localStorage on initial render
+      const [tasks, setTasks] = React.useState(() => {
+        try {
+          const savedTasks = localStorage.getItem('tasks');
+          return savedTasks ? JSON.parse(savedTasks) : [
+            { 
+              id: 1, 
+              text: "Example task", 
+              completed: false, 
+              editing: false,
+              priority: "none",
+              subtasks: [
+                { 
+                  id: 11, 
+                  text: "Example subtask", 
+                  completed: false,
+                  editing: false,
+                  priority: "none",
+                  sub_subtasks: [
+                    {
+                      id: 111,
+                      text: "Example sub-subtask",
+                      completed: false,
+                      editing: false,
+                      priority: "none"
+                    }
+                  ]
+                }
+              ]
+            }
+          ];
+        } catch (error) {
+          console.error("Error loading from localStorage:", error);
+          return [
+            { 
+              id: 1, 
+              text: "Example task", 
+              completed: false, 
+              editing: false,
+              priority: "none",
+              subtasks: [
+                { 
+                  id: 11, 
+                  text: "Example subtask", 
+                  completed: false,
+                  editing: false,
+                  priority: "none",
+                  sub_subtasks: [
+                    {
+                      id: 111,
+                      text: "Example sub-subtask",
+                      completed: false,
+                      editing: false,
+                      priority: "none"
+                    }
+                  ]
+                }
+              ]
+            }
+          ];
+        }
+      });
+      
+      // State for undo/redo functionality
+      const [history, setHistory] = React.useState(() => {
+        try {
+          const savedHistory = localStorage.getItem('tasksHistory');
+          return savedHistory ? JSON.parse(savedHistory) : {
+            past: [],
+            future: []
+          };
+        } catch (error) {
+          console.error("Error loading history from localStorage:", error);
+          return {
+            past: [],
+            future: []
+          };
+        }
+      });
+      
+      const [newTask, setNewTask] = React.useState("");
+      
+      // Load expanded state from localStorage
+      const [expandedTasks, setExpandedTasks] = React.useState(() => {
+        try {
+          const savedExpanded = localStorage.getItem('expandedTasks');
+          return savedExpanded ? JSON.parse(savedExpanded) : {1: true};
+        } catch (error) {
+          console.error("Error loading expanded state:", error);
+          return {1: true};
+        }
+      });
+      
+      // Add new state for tracking expanded subtasks
+      const [expandedSubtasks, setExpandedSubtasks] = React.useState(() => {
+        try {
+          const savedExpandedSubtasks = localStorage.getItem('expandedSubtasks');
+          return savedExpandedSubtasks ? JSON.parse(savedExpandedSubtasks) : {11: true};
+        } catch (error) {
+          console.error("Error loading expanded subtasks state:", error);
+          return {11: true};
+        }
+      });
+      
+      // Flag to prevent adding to history during undo/redo operations
+      const [isUndoRedoOperation, setIsUndoRedoOperation] = React.useState(false);
+      
+      // Save tasks to localStorage whenever they change
+      React.useEffect(() => {
+        try {
+          localStorage.setItem('tasks', JSON.stringify(tasks));
+          
+          // Add to history if not an undo/redo operation
+          if (!isUndoRedoOperation && history.past.length === 0 || 
+              !isUndoRedoOperation && JSON.stringify(history.past[history.past.length - 1]) !== JSON.stringify(tasks)) {
+            setHistory(prevHistory => {
+              const newHistory = {
+                past: [...prevHistory.past, tasks],
+                future: []
+              };
+              localStorage.setItem('tasksHistory', JSON.stringify(newHistory));
+              return newHistory;
+            });
+          }
+          
+          // Reset the flag if it was an undo/redo operation
+          if (isUndoRedoOperation) {
+            setIsUndoRedoOperation(false);
+          }
+        } catch (error) {
+          console.error("Error saving to localStorage:", error);
+        }
+      }, [tasks]);
+      
+      // Save expanded state to localStorage
+      React.useEffect(() => {
+        try {
+          localStorage.setItem('expandedTasks', JSON.stringify(expandedTasks));
+        } catch (error) {
+          console.error("Error saving expanded state:", error);
+        }
+      }, [expandedTasks]);
+      
+      // Save expanded subtasks state to localStorage
+      React.useEffect(() => {
+        try {
+          localStorage.setItem('expandedSubtasks', JSON.stringify(expandedSubtasks));
+        } catch (error) {
+          console.error("Error saving expanded subtasks state:", error);
+        }
+      }, [expandedSubtasks]);
+      
+      // Undo function
+      const undo = () => {
+        if (history.past.length > 0) {
+          const previous = history.past[history.past.length - 1];
+          const newPast = history.past.slice(0, history.past.length - 1);
+          
+          setIsUndoRedoOperation(true);
+          setHistory({
+            past: newPast,
+            future: [tasks, ...history.future]
+          });
+          setTasks(previous);
+        }
+      };
+      
+      // Redo function
+      const redo = () => {
+        if (history.future.length > 0) {
+          const next = history.future[0];
+          const newFuture = history.future.slice(1);
+          
+          setIsUndoRedoOperation(true);
+          setHistory({
+            past: [...history.past, tasks],
+            future: newFuture
+          });
+          setTasks(next);
+        }
+      };
+      
+      const addTask = () => {
+        if (newTask.trim() === "") return;
+        const newTaskObj = {
+          id: Date.now(),
+          text: newTask,
+          completed: false,
+          editing: false,
+          priority: "none",
+          subtasks: []
+        };
+        setTasks([...tasks, newTaskObj]);
+        setNewTask("");
+      };
+      
+      const addSubtask = (taskId, subtaskText) => {
+        if (subtaskText.trim() === "") return;
+        const newSubtaskId = Date.now();
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: [...task.subtasks, {
+                id: newSubtaskId,
+                text: subtaskText,
+                completed: false,
+                editing: false,
+                priority: "none",
+                sub_subtasks: []
+              }]
+            };
+          }
+          return task;
+        }));
+        
+        // Automatically expand the new subtask
+        setExpandedSubtasks({
+          ...expandedSubtasks,
+          [newSubtaskId]: true
+        });
+      };
+      
+      const addSubSubtask = (taskId, subtaskId, subSubtaskText) => {
+        if (subSubtaskText.trim() === "") return;
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => {
+                if (subtask.id === subtaskId) {
+                  return {
+                    ...subtask,
+                    sub_subtasks: [...(subtask.sub_subtasks || []), {
+                      id: Date.now(),
+                      text: subSubtaskText,
+                      completed: false,
+                      editing: false,
+                      priority: "none"
+                    }]
+                  };
+                }
+                return subtask;
+              })
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const toggleTaskCompletion = (taskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            const newCompletedState = !task.completed;
+            return {
+              ...task,
+              completed: newCompletedState,
+              subtasks: task.subtasks.map(subtask => ({
+                ...subtask,
+                completed: newCompletedState ? true : subtask.completed,
+                sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => ({
+                  ...subSubtask,
+                  completed: newCompletedState ? true : subSubtask.completed
+                }))
+              }))
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const toggleSubtaskCompletion = (taskId, subtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            const updatedSubtasks = task.subtasks.map(subtask => {
+              if (subtask.id === subtaskId) {
+                const newSubtaskCompletedState = !subtask.completed;
+                return { 
+                  ...subtask, 
+                  completed: newSubtaskCompletedState,
+                  sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => ({
+                    ...subSubtask,
+                    completed: newSubtaskCompletedState ? true : subSubtask.completed
+                  }))
+                };
+              }
+              return subtask;
+            });
+            
+            const allSubtasksCompleted = updatedSubtasks.every(subtask => subtask.completed);
+            
+            return {
+              ...task,
+              completed: allSubtasksCompleted,
+              subtasks: updatedSubtasks
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const toggleSubSubtaskCompletion = (taskId, subtaskId, subSubtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            const updatedSubtasks = task.subtasks.map(subtask => {
+              if (subtask.id === subtaskId) {
+                const updatedSubSubtasks = (subtask.sub_subtasks || []).map(subSubtask => {
+                  if (subSubtask.id === subSubtaskId) {
+                    return { ...subSubtask, completed: !subSubtask.completed };
+                  }
+                  return subSubtask;
+                });
+                
+                const allSubSubtasksCompleted = updatedSubSubtasks.every(subSubtask => subSubtask.completed);
+                
+                return {
+                  ...subtask,
+                  completed: allSubSubtasksCompleted && (subtask.sub_subtasks || []).length > 0,
+                  sub_subtasks: updatedSubSubtasks
+                };
+              }
+              return subtask;
+            });
+            
+            const allSubtasksCompleted = updatedSubtasks.every(subtask => subtask.completed);
+            
+            return {
+              ...task,
+              completed: allSubtasksCompleted,
+              subtasks: updatedSubtasks
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const toggleExpand = (taskId) => {
+        setExpandedTasks({
+          ...expandedTasks,
+          [taskId]: !expandedTasks[taskId]
+        });
+      };
+      
+      const toggleExpandSubtask = (subtaskId, event) => {
+        // Prevent the click from bubbling up to parent elements
+        if (event) {
+          event.stopPropagation();
+        }
+        
+        setExpandedSubtasks({
+          ...expandedSubtasks,
+          [subtaskId]: !expandedSubtasks[subtaskId]
+        });
+      };
+      
+      const deleteTask = (taskId) => {
+        setTasks(tasks.filter(task => task.id !== taskId));
+      };
+      
+      const deleteSubtask = (taskId, subtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.filter(subtask => subtask.id !== subtaskId)
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const deleteSubSubtask = (taskId, subtaskId, subSubtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => {
+                if (subtask.id === subtaskId) {
+                  return {
+                    ...subtask,
+                    sub_subtasks: (subtask.sub_subtasks || []).filter(
+                      subSubtask => subSubtask.id !== subSubtaskId
+                    )
+                  };
+                }
+                return subtask;
+              })
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const startEditingTask = (taskId) => {
+        setTasks(tasks.map(task => 
+          task.id === taskId ? { ...task, editing: true } : task
+        ));
+      };
+      
+      const startEditingSubtask = (taskId, subtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => 
+                subtask.id === subtaskId ? { ...subtask, editing: true } : subtask
+              )
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const startEditingSubSubtask = (taskId, subtaskId, subSubtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => {
+                if (subtask.id === subtaskId) {
+                  return {
+                    ...subtask,
+                    sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => 
+                      subSubtask.id === subSubtaskId ? { ...subSubtask, editing: true } : subSubtask
+                    )
+                  };
+                }
+                return subtask;
+              })
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const saveTaskEdit = (taskId, newText) => {
+        if (newText.trim() === "") return;
+        setTasks(tasks.map(task => 
+          task.id === taskId 
+            ? { ...task, text: newText.trim(), editing: false } 
+            : task
+        ));
+      };
+      
+      const saveSubtaskEdit = (taskId, subtaskId, newText) => {
+        if (newText.trim() === "") return;
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => 
+                subtask.id === subtaskId 
+                  ? { ...subtask, text: newText.trim(), editing: false } 
+                  : subtask
+              )
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const saveSubSubtaskEdit = (taskId, subtaskId, subSubtaskId, newText) => {
+        if (newText.trim() === "") return;
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => {
+                if (subtask.id === subtaskId) {
+                  return {
+                    ...subtask,
+                    sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => 
+                      subSubtask.id === subSubtaskId 
+                        ? { ...subSubtask, text: newText.trim(), editing: false } 
+                        : subSubtask
+                    )
+                  };
+                }
+                return subtask;
+              })
+            };
+          }
+          return task;
+        }));
+      };
+      
+      // New function to set priority
+      const setPriority = (taskId, priority, subtaskId = null, subSubtaskId = null) => {
+        setTasks(tasks.map(task => {
+          // If we're updating a main task
+          if (taskId === task.id && !subtaskId && !subSubtaskId) {
+            return { ...task, priority };
+          }
+          
+          // If we're updating a subtask
+          else if (taskId === task.id && subtaskId && !subSubtaskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => 
+                subtask.id === subtaskId ? { ...subtask, priority } : subtask
+              )
+            };
+          }
+          
+          // If we're updating a sub-subtask
+          else if (taskId === task.id && subtaskId && subSubtaskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => {
+                if (subtask.id === subtaskId) {
+                  return {
+                    ...subtask,
+                    sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => 
+                      subSubtask.id === subSubtaskId ? { ...subSubtask, priority } : subSubtask
+                    )
+                  };
+                }
+                return subtask;
+              })
+            };
+          }
+          
+          return task;
+        }));
+      };
+      
+      // Drag and drop handlers
+      const onDragEnd = (result) => {
+        const { source, destination, type } = result;
+        
+        // Dropped outside a droppable area
+        if (!destination) {
+          return;
+        }
+        
+        // No movement
+        if (
+          source.droppableId === destination.droppableId &&
+          source.index === destination.index
+        ) {
+          return;
+        }
+        
+        // Handle different types of draggable items
+        switch (type) {
+          case 'task': {
+            // Reorder the main tasks
+            const reorderedTasks = Array.from(tasks);
+            const [removed] = reorderedTasks.splice(source.index, 1);
+            reorderedTasks.splice(destination.index, 0, removed);
+            
+            setTasks(reorderedTasks);
+            break;
+          }
+          
+          case 'subtask': {
+            // Extract the taskId from the droppableId
+            const taskId = parseInt(source.droppableId.split('-')[1]);
+            
+            // If moving within the same task
+            if (source.droppableId === destination.droppableId) {
+              setTasks(tasks.map(task => {
+                if (task.id === taskId) {
+                  const newSubtasks = Array.from(task.subtasks);
+                  const [removed] = newSubtasks.splice(source.index, 1);
+                  newSubtasks.splice(destination.index, 0, removed);
+                  
+                  return {
+                    ...task,
+                    subtasks: newSubtasks
+                  };
+                }
+                return task;
+              }));
+            } 
+            // If moving between different tasks
+            else {
+              const sourceTaskId = parseInt(source.droppableId.split('-')[1]);
+              const destTaskId = parseInt(destination.droppableId.split('-')[1]);
+              
+              setTasks(tasks.map(task => {
+                // Source task - remove subtask
+                if (task.id === sourceTaskId) {
+                  const newSubtasks = Array.from(task.subtasks);
+                  const [removed] = newSubtasks.splice(source.index, 1);
+                  
+                  // Store the removed subtask in a variable for later
+                  const subtaskToMove = removed;
+                  
+                  return {
+                    ...task,
+                    subtasks: newSubtasks
+                  };
+                }
+                // Destination task - add subtask
+                else if (task.id === destTaskId) {
+                  // Find the source task to get the subtask
+                  const sourceTask = tasks.find(t => t.id === sourceTaskId);
+                  const subtaskToAdd = sourceTask.subtasks[source.index];
+                  
+                  const newSubtasks = Array.from(task.subtasks);
+                  newSubtasks.splice(destination.index, 0, subtaskToAdd);
+                  
+                  return {
+                    ...task,
+                    subtasks: newSubtasks
+                  };
+                }
+                return task;
+              }));
+            }
+            break;
+          }
+          
+          case 'sub-subtask': {
+            // Extract the taskId and subtaskId from the droppableId
+            const [_, taskId, subtaskId] = source.droppableId.split('-').map(Number);
+            
+            // If moving within the same subtask
+            if (source.droppableId === destination.droppableId) {
+              setTasks(tasks.map(task => {
+                if (task.id === taskId) {
+                  return {
+                    ...task,
+                    subtasks: task.subtasks.map(subtask => {
+                      if (subtask.id === subtaskId) {
+                        const newSubSubtasks = Array.from(subtask.sub_subtasks || []);
+                        const [removed] = newSubSubtasks.splice(source.index, 1);
+                        newSubSubtasks.splice(destination.index, 0, removed);
+                        
+                        return {
+                          ...subtask,
+                          sub_subtasks: newSubSubtasks
+                        };
+                      }
+                      return subtask;
+                    })
+                  };
+                }
+                return task;
+              }));
+            }
+            // If moving between different subtasks
+            else {
+              const [_, sourceTaskId, sourceSubtaskId] = source.droppableId.split('-').map(Number);
+              const [__, destTaskId, destSubtaskId] = destination.droppableId.split('-').map(Number);
+              
+              setTasks(tasks.map(task => {
+                // Handle source task
+                if (task.id === sourceTaskId) {
+                  const updatedSubtasks = task.subtasks.map(subtask => {
+                    if (subtask.id === sourceSubtaskId) {
+                      const subSubtasks = Array.from(subtask.sub_subtasks || []);
+                      const [removed] = subSubtasks.splice(source.index, 1);
+                      
+                      return {
+                        ...subtask,
+                        sub_subtasks: subSubtasks
+                      };
+                    }
+                    return subtask;
+                  });
+                  
+                  return {
+                    ...task,
+                    subtasks: updatedSubtasks
+                  };
+                }
+                // Handle destination task
+                else if (task.id === destTaskId) {
+                  const updatedSubtasks = task.subtasks.map(subtask => {
+                    if (subtask.id === destSubtaskId) {
+                      // Find the item being moved
+                      const sourceTask = tasks.find(t => t.id === sourceTaskId);
+                      const sourceSubtask = sourceTask.subtasks.find(st => st.id === sourceSubtaskId);
+                      const subSubtaskToMove = sourceSubtask.sub_subtasks[source.index];
+                      
+                      // Add it to the destination
+                      const subSubtasks = Array.from(subtask.sub_subtasks || []);
+                      subSubtasks.splice(destination.index, 0, subSubtaskToMove);
+                      
+                      return {
+                        ...subtask,
+                        sub_subtasks: subSubtasks
+                      };
+                    }
+                    return subtask;
+                  });
+                  
+                  return {
+                    ...task,
+                    subtasks: updatedSubtasks
+                  };
+                }
+                return task;
+              }));
+            }
+            break;
+          }
+          
+          default:
+            break;
+        }
+      };
+      
+      return (
+        <div>
+          <div className="header">
+            <h2 style={{margin: 0}}>Todo List App</h2>
+            <div className="header-controls">
+              <div className="undo-redo-buttons">
+                <button 
+                  onClick={undo}
+                  disabled={history.past.length === 0}
+                  title="Undo"
+                >
+                  ↩ Undo
+                </button>
+                <button 
+                  onClick={redo}
+                  disabled={history.future.length === 0}
+                  title="Redo"
+                >
+                  ↪ Redo
+                </button>
+              </div>
+              <div className="window-buttons">
+                <button>-</button>
+                <button>□</button>
+                <button>×</button>
+              </div>
+            </div>
+          </div>
+          
+          <div className="container">
+            <div className="add-task">
+              <input 
+                type="text" 
+                value={newTask}
+                onChange={(e) => setNewTask(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && addTask()}
+                placeholder="Add a new task..."
+              />
+              <button onClick={addTask}>Add</button>
+            </div>
+            
+            <DragDropContext onDragEnd={onDragEnd}>
+              <Droppable droppableId="tasks" type="task">
+                {(provided, snapshot) => (
+                  <div 
+                    className={`task-grid ${snapshot.isDraggingOver ? 'isDraggingOver' : ''}`}
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                  >
+                    {tasks.map((task, index) => (
+                      <Draggable 
+                        key={task.id} 
+                        draggableId={`task-${task.id}`} 
+                        index={index}
+                      >
+                        {(provided, snapshot) => (
+                          <div 
+                            className={`task-card task-item ${snapshot.isDragging ? 'isDragging' : ''}`}
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                          >
+                            <div className="task-header">
+                              <div 
+                                className="drag-handle"
+                                {...provided.dragHandleProps}
+                              >
+                                ⋮⋮
+                              </div>
+                              <div className={`priority-indicator priority-${task.priority}`}></div>
+                              <input 
+                                type="checkbox" 
+                                checked={task.completed}
+                                onChange={() => toggleTaskCompletion(task.id)}
+                              />
+                              {task.editing ? (
+                                <input 
+                                  type="text" 
+                                  defaultValue={task.text}
+                                  className="task-text-edit"
+                                  onBlur={(e) => saveTaskEdit(task.id, e.target.value)}
+                                  onKeyPress={(e) => e.key === 'Enter' && saveTaskEdit(task.id, e.target.value)}
+                                  autoFocus
+                                />
+                              ) : (
+                                <span 
+                                  style={{marginLeft: "8px", flexGrow: 1}} 
+                                  className={task.completed ? "completed" : ""}
+                                >
+                                  {task.text}
+                                </span>
+                              )}
+                              <div className="priority-selector">
+                                <button 
+                                  className="high" 
+                                  onClick={() => setPriority(task.id, "high")}
+                                  title="High Priority"
+                                  style={{border: task.priority === "high" ? "2px solid black" : "1px solid #ccc"}}
+                                ></button>
+                                <button 
+                                  className="medium" 
+                                  onClick={() => setPriority(task.id, "medium")}
+                                  title="Medium Priority"
+                                  style={{border: task.priority === "medium" ? "2px solid black" : "1px solid #ccc"}}
+                                ></button>
+                                <button 
+                                  className="low" 
+                                  onClick={() => setPriority(task.id, "low")}
+                                  title="Low Priority"
+                                  style={{border: task.priority === "low" ? "2px solid black" : "1px solid #ccc"}}
+                                ></button>
+                                <button 
+                                  className="none" 
+                                  onClick={() => setPriority(task.id, "none")}
+                                  title="No Priority"
+                                  style={{border: task.priority === "none" ? "2px solid black" : "1px solid #ccc"}}
+                                ></button>
+                              </div>
+                              <div className="action-buttons">
+                                {!task.editing && (
+                                  <button onClick={() => startEditingTask(task.id)}>✏️</button>
+                                )}
+                                <button 
+                                  onClick={() => toggleExpand(task.id)}
+                                  style={{cursor: "pointer"}}
+                                >
+                                  {expandedTasks[task.id] ? "▼" : "►"}
+                                </button>
+                                <button 
+                                  onClick={() => deleteTask(task.id)}
+                                  style={{color: "red"}}
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            </div>
+                            
+                            {expandedTasks[task.id] && (
+                              <div className="task-content">
+                                {task.subtasks.length === 0 ? (
+                                  <div style={{color: "#999", fontStyle: "italic", fontSize: "14px"}}>
+                                    No subtasks yet
+                                  </div>
+                                ) : (
+                                  <Droppable 
+                                    droppableId={`subtasks-${task.id}`} 
+                                    type="subtask"
+                                  >
+                                    {(provided, snapshot) => (
+                                      <div
+                                        ref={provided.innerRef}
+                                        {...provided.droppableProps}
+                                        className={`droppable-container ${snapshot.isDraggingOver ? 'isDraggingOver' : ''}`}
+                                      >
+                                        {task.subtasks.map((subtask, subtaskIndex) => (
+                                          <Draggable
+                                            key={subtask.id}
+                                            draggableId={`subtask-${subtask.id}`}
+                                            index={subtaskIndex}
+                                          >
+                                            {(provided, snapshot) => (
+                                              <div 
+                                                ref={provided.innerRef}
+                                                {...provided.draggableProps}
+                                                className={`subtask nested-level ${snapshot.isDragging ? 'isDragging' : ''}`}
+                                              >
+                                                {/* Subtask header */}
+                                                <div className="subtask-header">
+                                                  <div 
+                                                    className="drag-handle"
+                                                    {...provided.dragHandleProps}
+                                                  >
+                                                    ⋮⋮
+                                                  </div>
+                                                  <div className={`priority-indicator priority-${subtask.priority}`}></div>
+                                                  <input 
+                                                    type="checkbox" 
+                                                    checked={subtask.completed}
+                                                    onChange={() => toggleSubtaskCompletion(task.id, subtask.id)}
+                                                  />
+                                                  {subtask.editing ? (
+                                                    <input 
+                                                      type="text" 
+                                                      defaultValue={subtask.text}
+                                                      className="task-text-edit"
+                                                      onBlur={(e) => saveSubtaskEdit(task.id, subtask.id, e.target.value)}
+                                                      onKeyPress={(e) => e.key === 'Enter' && saveSubtaskEdit(task.id, subtask.id, e.target.value)}
+                                                      autoFocus
+                                                    />
+                                                  ) : (
+                                                    <span 
+                                                      style={{marginLeft: "8px", flexGrow: 1}}
+                                                      className={subtask.completed ? "completed" : ""}
+                                                    >
+                                                      {subtask.text}
+                                                    </span>
+                                                  )}
+                                                  <div className="priority-selector">
+                                                    <button 
+                                                      className="high" 
+                                                      onClick={() => setPriority(task.id, "high", subtask.id)}
+                                                      title="High Priority"
+                                                      style={{border: subtask.priority === "high" ? "2px solid black" : "1px solid #ccc"}}
+                                                    ></button>
+                                                    <button 
+                                                      className="medium" 
+                                                      onClick={() => setPriority(task.id, "medium", subtask.id)}
+                                                      title="Medium Priority"
+                                                      style={{border: subtask.priority === "medium" ? "2px solid black" : "1px solid #ccc"}}
+                                                    ></button>
+                                                    <button 
+                                                      className="low" 
+                                                      onClick={() => setPriority(task.id, "low", subtask.id)}
+                                                      title="Low Priority"
+                                                      style={{border: subtask.priority === "low" ? "2px solid black" : "1px solid #ccc"}}
+                                                    ></button>
+                                                    <button 
+                                                      className="none" 
+                                                      onClick={() => setPriority(task.id, "none", subtask.id)}
+                                                      title="No Priority"
+                                                      style={{border: subtask.priority === "none" ? "2px solid black" : "1px solid #ccc"}}
+                                                    ></button>
+                                                  </div>
+                                                  <div className="action-buttons">
+                                                    {!subtask.editing && (
+                                                      <button onClick={() => startEditingSubtask(task.id, subtask.id)}>✏️</button>
+                                                    )}
+                                                    {/* Toggle expand button for subtasks with sub-subtasks */}
+                                                    {(subtask.sub_subtasks || []).length > 0 && (
+                                                      <button 
+                                                        onClick={(e) => toggleExpandSubtask(subtask.id, e)}
+                                                        style={{cursor: "pointer"}}
+                                                      >
+                                                        {expandedSubtasks[subtask.id] ? "▼" : "►"}
+                                                      </button>
+                                                    )}
+                                                    <button 
+                                                      onClick={() => deleteSubtask(task.id, subtask.id)}
+                                                      style={{color: "red"}}
+                                                    >
+                                                      ×
+                                                    </button>
+                                                  </div>
+                                                </div>
+                                                
+                                                {/* Show sub-subtasks only if the subtask is expanded */}
+                                                {(subtask.sub_subtasks || []).length > 0 && expandedSubtasks[subtask.id] && (
+                                                  <Droppable
+                                                    droppableId={`sub-${task.id}-${subtask.id}`}
+                                                    type="sub-subtask"
+                                                  >
+                                                    {(provided, snapshot) => (
+                                                      <div 
+                                                        ref={provided.innerRef}
+                                                        {...provided.droppableProps}
+                                                        className={`sub-subtasks-container droppable-container ${snapshot.isDraggingOver ? 'isDraggingOver' : ''}`}
+                                                      >
+                                                        {/* Sub-subtasks */}
+                                                        {(subtask.sub_subtasks || []).map((subSubtask, subSubtaskIndex) => (
+                                                          <Draggable
+                                                            key={subSubtask.id}
+                                                            draggableId={`subsubtask-${subSubtask.id}`}
+                                                            index={subSubtaskIndex}
+                                                          >
+                                                            {(provided, snapshot) => (
+                                                              <div 
+                                                                ref={provided.innerRef}
+                                                                {...provided.draggableProps}
+                                                                className={`sub-subtask ${snapshot.isDragging ? 'isDragging' : ''}`}
+                                                              >
+                                                                <div 
+                                                                  className="drag-handle"
+                                                                  {...provided.dragHandleProps}
+                                                                >
+                                                                  ⋮⋮
+                                                                </div>
+                                                                <div className={`priority-indicator priority-${subSubtask.priority}`}></div>
+                                                                <input 
+                                                                  type="checkbox" 
+                                                                  checked={subSubtask.completed}
+                                                                  onChange={() => toggleSubSubtaskCompletion(task.id, subtask.id, subSubtask.id)}
+                                                                />
+                                                                {subSubtask.editing ? (
+                                                                  <input 
+                                                                    type="text" 
+                                                                    defaultValue={subSubtask.text}
+                                                                    className="task-text-edit"
+                                                                    onBlur={(e) => saveSubSubtaskEdit(task.id, subtask.id, subSubtask.id, e.target.value)}
+                                                                    onKeyPress={(e) => e.key === 'Enter' && saveSubSubtaskEdit(task.id, subtask.id, subSubtask.id, e.target.value)}
+                                                                    autoFocus
+                                                                  />
+                                                                ) : (
+                                                                  <span 
+                                                                    style={{marginLeft: "8px", flexGrow: 1}}
+                                                                    className={subSubtask.completed ? "completed" : ""}
+                                                                  >
+                                                                    {subSubtask.text}
+                                                                  </span>
+                                                                )}
+                                                                <div className="priority-selector">
+                                                                  <button 
+                                                                    className="high" 
+                                                                    onClick={() => setPriority(task.id, "high", subtask.id, subSubtask.id)}
+                                                                    title="High Priority"
+                                                                    style={{border: subSubtask.priority === "high" ? "2px solid black" : "1px solid #ccc"}}
+                                                                  ></button>
+                                                                  <button 
+                                                                    className="medium" 
+                                                                    onClick={() => setPriority(task.id, "medium", subtask.id, subSubtask.id)}
+                                                                    title="Medium Priority"
+                                                                    style={{border: subSubtask.priority === "medium" ? "2px solid black" : "1px solid #ccc"}}
+                                                                  ></button>
+                                                                  <button 
+                                                                    className="low" 
+                                                                    onClick={() => setPriority(task.id, "low", subtask.id, subSubtask.id)}
+                                                                    title="Low Priority"
+                                                                    style={{border: subSubtask.priority === "low" ? "2px solid black" : "1px solid #ccc"}}
+                                                                  ></button>
+                                                                  <button 
+                                                                    className="none" 
+                                                                    onClick={() => setPriority(task.id, "none", subtask.id, subSubtask.id)}
+                                                                    title="No Priority"
+                                                                    style={{border: subSubtask.priority === "none" ? "2px solid black" : "1px solid #ccc"}}
+                                                                  ></button>
+                                                                </div>
+                                                                <div className="action-buttons">
+                                                                  {!subSubtask.editing && (
+                                                                    <button onClick={() => startEditingSubSubtask(task.id, subtask.id, subSubtask.id)}>✏️</button>
+                                                                  )}
+                                                                  <button 
+                                                                    onClick={() => deleteSubSubtask(task.id, subtask.id, subSubtask.id)}
+                                                                    style={{color: "red"}}
+                                                                  >
+                                                                    ×
+                                                                  </button>
+                                                                </div>
+                                                              </div>
+                                                            )}
+                                                          </Draggable>
+                                                        ))}
+                                                        {provided.placeholder}
+                                                      </div>
+                                                    )}
+                                                  </Droppable>
+                                                )}
+                                                
+                                                {/* Add sub-subtask input - only show if subtask is expanded */}
+                                                {expandedSubtasks[subtask.id] && (
+                                                  <div className="add-sub-subtask">
+                                                    <input 
+                                                      type="text" 
+                                                      placeholder="Add a sub-subtask..." 
+                                                      id={`sub-subtask-input-${task.id}-${subtask.id}`}
+                                                      onKeyPress={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                          const input = document.getElementById(`sub-subtask-input-${task.id}-${subtask.id}`);
+                                                          addSubSubtask(task.id, subtask.id, input.value);
+                                                          input.value = "";
+                                                        }
+                                                      }}
+                                                    />
+                                                    <button onClick={() => {
+                                                      const input = document.getElementById(`sub-subtask-input-${task.id}-${subtask.id}`);
+                                                      addSubSubtask(task.id, subtask.id, input.value);
+                                                      input.value = "";
+                                                    }}>Add</button>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            )}
+                                          </Draggable>
+                                        ))}
+                                        {provided.placeholder}
+                                      </div>
+                                    )}
+                                  </Droppable>
+                                )}
+                                
+                                {/* Add subtask input */}
+                                <div className="add-subtask">
+                                  <input 
+                                    type="text" 
+                                    placeholder="Add a subtask..." 
+                                    id={`subtask-input-${task.id}`}
+                                    onKeyPress={(e) => {
+                                      if (e.key === 'Enter') {
+                                        const input = document.getElementById(`subtask-input-${task.id}`);
+                                        addSubtask(task.id, input.value);
+                                        input.value = "";
+                                      }
+                                    }}
+                                  />
+                                  <button onClick={() => {
+                                    const input = document.getElementById(`subtask-input-${task.id}`);
+                                    addSubtask(task.id, input.value);
+                                    input.value = "";
+                                  }}>Add</button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
+          </div>
+          
+          <div className="footer">
+            <div>Total tasks: {tasks.length}</div>
+            <div>Completed: {tasks.filter(task => task.completed).length}</div>
+            <div>Remaining: {tasks.filter(task => !task.completed).length}</div>
+          </div>
+        </div>
+      );
+    };
+    
+    ReactDOM.render(<TodoApp />, document.getElementById('root'));
+  </script>
+</body>
+</html>
