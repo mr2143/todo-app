@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Todo App with Subtasks</title>
+  <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const TodoApp = () => {
+      const [tasks, setTasks] = React.useState(() => {
+        const savedTasks = localStorage.getItem('tasks');
+        return savedTasks ? JSON.parse(savedTasks) : [
+          { id: 1, text: "Sample task", completed: false, subtasks: [
+            { id: 11, text: "Sample subtask", completed: false }
+          ]}
+        ];
+      });
+      const [newTaskText, setNewTaskText] = React.useState("");
+      const [newSubtaskText, setNewSubtaskText] = React.useState("");
+      const [expandedTasks, setExpandedTasks] = React.useState({1: true});
+      
+      React.useEffect(() => {
+        localStorage.setItem('tasks', JSON.stringify(tasks));
+      }, [tasks]);
+      
+      const addTask = () => {
+        if (newTaskText.trim() === '') return;
+        
+        const newTask = {
+          id: Date.now(),
+          text: newTaskText,
+          completed: false,
+          subtasks: []
+        };
+        
+        setTasks([...tasks, newTask]);
+        setNewTaskText('');
+      };
+      
+      const addSubtask = (taskId) => {
+        if (newSubtaskText.trim() === '') return;
+        
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: [...task.subtasks, {
+                id: Date.now(),
+                text: newSubtaskText,
+                completed: false
+              }]
+            };
+          }
+          return task;
+        }));
+        
+        setNewSubtaskText('');
+      };
+      
+      const toggleTaskCompletion = (taskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            const newCompletedState = !task.completed;
+            return {
+              ...task,
+              completed: newCompletedState,
+              subtasks: task.subtasks.map(subtask => ({
+                ...subtask,
+                completed: newCompletedState ? true : subtask.completed
+              }))
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const toggleSubtaskCompletion = (taskId, subtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            const updatedSubtasks = task.subtasks.map(subtask => {
+              if (subtask.id === subtaskId) {
+                return { ...subtask, completed: !sub
