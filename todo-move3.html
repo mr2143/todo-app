@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Enhanced Todo App with Drag-and-Drop, Due Dates and Progress Visualization</title>
+  <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    .dragging {
+      opacity: 0.5;
+    }
+    .drag-over {
+      background-color: #e0f2fe;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const TodoApp = () => {
+      const [tasks, setTasks] = React.useState(() => {
+        try {
+          const savedTasks = localStorage.getItem('tasks');
+          return savedTasks ? JSON.parse(savedTasks) : [
+            { 
+              id: 1, 
+              text: "Example task", 
+              completed: false, 
+              editing: false,
+              dueDate: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0], // 3 days from now
+              subtasks: [
+                { 
+                  id: 11, 
+                  text: "Example subtask", 
+                  completed: false,
+                  editing: false,
+                  dueDate: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0], // 2 days from now
+                  sub_subtasks: [
+                    {
+                      id: 111,
+                      text: "Example sub-subtask",
+                      completed: false,
+                      editing: false,
+                      dueDate: new Date(Date.now() + 86400000).toISOString().split('T')[0] // 1 day from now
+                    }
+                  ]
+                }
+              ]
+            }
+          ];
+        } catch (error) {
+          console.error("Error loading from localStorage:", error);
+          return [
+            { 
+              id: 1, 
+              text: "Example task", 
+              completed: false, 
+              editing: false,
+              dueDate: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0],
+              subtasks: [
+                { 
+                  id: 11, 
+                  text: "Example subtask", 
+                  completed: false,
+                  editing: false,
+                  dueDate: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
+                  sub_subtasks: [
+                    {
+                      id: 111,
+                      text: "Example sub-subtask",
+                      completed: false,
+                      editing: false,
+                      dueDate: new Date(Date.now() + 86400000).toISOString().split('T')[0]
+                    }
+                  ]
+                }
+              ]
+            }
+          ];
+        }
+      });
+      
+      const [newTask, setNewTask] = React.useState("");
+      const [taskStats, setTaskStats] = React.useState([]);
+      
+      // For drag and drop
+      const [draggedItem, setDraggedItem] = React.useState(null);
+      const [draggedItemType, setDraggedItemType] = React.useState(null);
+      const [draggedItemParent, setDraggedItemParent] = React.useState(null);
+      
+      // Load expanded state from localStorage
+      const [expandedTasks, setExpandedTasks] = React.useState(() => {
+        try {
+          const savedExpanded = localStorage.getItem('expandedTasks');
+          return savedExpanded ? JSON.parse(savedExpanded) : {1: true};
+        } catch (error) {
+          console.error("Error loading expanded state:", error);
+          return {1: true};
+        }
+      });
+      
+      // Add new state for tracking expanded subtasks
+      const [expandedSubtasks, setExpandedSubtasks] = React.useState(() => {
+        try {
+          const savedExpandedSubtasks = localStorage.getItem('expandedSubtasks');
+          return savedExpandedSubtasks ? JSON.parse(savedExpandedSubtasks) : {11: true};
+        } catch (error) {
+          console.error("Error loading expanded subtasks state:", error);
+          return {11: true};
+        }
+      });
+      
+      // Save tasks to localStorage and update stats whenever they change
+      React.useEffect(() => {
+        try {
+          localStorage.setItem('tasks', JSON.stringify(tasks));
+          updateTaskStats();
+        } catch (error) {
+          console.error("Error saving to localStorage:", error);
+        }
+      }, [tasks]);
+      
+      // Calculate and update task statistics for charts
+      const updateTaskStats = () => {
+        const today = new Date();
+        const stats = [];
+        
+        // Get stats for the last 7 days
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date(today);
+          date.setDate(date.getDate() - i);
+          const dateString = date.toISOString().split('T')[0];
+          
+          const totalTasks = tasks.length;
+          const completedTasks = tasks.filter(task => task.completed).length;
+          const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+          
+          stats.push({
+            date: dateString,
+            completionRate: Math.round(completionRate),
+            totalTasks,
+            completedTasks
+          });
+        }
+        
+        setTaskStats(stats);
+      };
+      
+      // Save expanded state to localStorage
+      React.useEffect(() => {
+        try {
+          localStorage.setItem('expandedTasks', JSON.stringify(expandedTasks));
+        } catch (error) {
+          console.error("Error saving expanded state:", error);
+        }
+      }, [expandedTasks]);
+      
+      // Save expanded subtasks state to localStorage
+      React.useEffect(() => {
+        try {
+          localStorage.setItem('expandedSubtasks', JSON.stringify(expandedSubtasks));
+        } catch (error) {
+          console.error("Error saving expanded subtasks state:", error);
+        }
+      }, [expandedSubtasks]);
+      
+      // Request notification permission
+      React.useEffect(() => {
+        if (typeof Notification !== 'undefined' && 
+            Notification.permission !== 'granted' && 
+            Notification.permission !== 'denied') {
+          Notification.requestPermission();
+        }
+      }, []);
+      
+      // Check for due tasks and send notifications
+      React.useEffect(() => {
+        const checkDueTasks = () => {
+          if (typeof Notification === 'undefined') return;
+          
+          const today = new Date().toISOString().split('T')[0];
+          
+          // Check top-level tasks
+          tasks.forEach(task => {
+            if (!task.completed && task.dueDate === today) {
+              showNotification(`Task Due Today: ${task.text}`);
+            }
+            
+            // Check subtasks
+            task.subtasks.forEach(subtask => {
+              if (!subtask.completed && subtask.dueDate === today) {
+                showNotification(`Subtask Due Today: ${subtask.text}`);
+              }
+              
+              // Check sub-subtasks
+              (subtask.sub_subtasks || []).forEach(subSubtask => {
+                if (!subSubtask.completed && subSubtask.dueDate === today) {
+                  showNotification(`Sub-subtask Due Today: ${subSubtask.text}`);
+                }
+              });
+            });
+          });
+        };
+        
+        // Check once on component mount
+        checkDueTasks();
+        
+        // Set interval to check periodically (every hour)
+        const intervalId = setInterval(checkDueTasks, 3600000);
+        
+        return () => clearInterval(intervalId);
+      }, [tasks]);
+      
+      const showNotification = (message) => {
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          new Notification('Todo App Reminder', {
+            body: message,
+            icon: '/favicon.ico'
+          });
+        }
+      };
+      
+      const addTask = () => {
+        if (newTask.trim() === "") return;
+        const newTaskObj = {
+          id: Date.now(),
+          text: newTask,
+          completed: false,
+          editing: false,
+          dueDate: "",
+          subtasks: []
+        };
+        setTasks([...tasks, newTaskObj]);
+        setNewTask("");
+      };
+      
+      const addSubtask = (taskId, subtaskText) => {
+        if (subtaskText.trim() === "") return;
+        const newSubtaskId = Date.now();
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: [...task.subtasks, {
+                id: newSubtaskId,
+                text: subtaskText,
+                completed: false,
+                editing: false,
+                dueDate: "",
+                sub_subtasks: []
+              }]
+            };
+          }
+          return task;
+        }));
+        
+        // Automatically expand the new subtask
+        setExpandedSubtasks({
+          ...expandedSubtasks,
+          [newSubtaskId]: true
+        });
+      };
+      
+      const addSubSubtask = (taskId, subtaskId, subSubtaskText) => {
+        if (subSubtaskText.trim() === "") return;
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => {
+                if (subtask.id === subtaskId) {
+                  return {
+                    ...subtask,
+                    sub_subtasks: [...(subtask.sub_subtasks || []), {
+                      id: Date.now(),
+                      text: subSubtaskText,
+                      completed: false,
+                      editing: false,
+                      dueDate: ""
+                    }]
+                  };
+                }
+                return subtask;
+              })
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const toggleTaskCompletion = (taskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            const newCompletedState = !task.completed;
+            return {
+              ...task,
+              completed: newCompletedState,
+              subtasks: task.subtasks.map(subtask => ({
+                ...subtask,
+                completed: newCompletedState ? true : subtask.completed,
+                sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => ({
+                  ...subSubtask,
+                  completed: newCompletedState ? true : subSubtask.completed
+                }))
+              }))
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const toggleSubtaskCompletion = (taskId, subtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            const updatedSubtasks = task.subtasks.map(subtask => {
+              if (subtask.id === subtaskId) {
+                const newSubtaskCompletedState = !subtask.completed;
+                return { 
+                  ...subtask, 
+                  completed: newSubtaskCompletedState,
+                  sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => ({
+                    ...subSubtask,
+                    completed: newSubtaskCompletedState ? true : subSubtask.completed
+                  }))
+                };
+              }
+              return subtask;
+            });
+            
+            const allSubtasksCompleted = updatedSubtasks.every(subtask => subtask.completed);
+            
+            return {
+              ...task,
+              completed: allSubtasksCompleted,
+              subtasks: updatedSubtasks
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const toggleSubSubtaskCompletion = (taskId, subtaskId, subSubtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            const updatedSubtasks = task.subtasks.map(subtask => {
+              if (subtask.id === subtaskId) {
+                const updatedSubSubtasks = (subtask.sub_subtasks || []).map(subSubtask => {
+                  if (subSubtask.id === subSubtaskId) {
+                    return { ...subSubtask, completed: !subSubtask.completed };
+                  }
+                  return subSubtask;
+                });
+                
+                const allSubSubtasksCompleted = updatedSubSubtasks.every(subSubtask => subSubtask.completed);
+                
+                return {
+                  ...subtask,
+                  completed: allSubSubtasksCompleted && (subtask.sub_subtasks || []).length > 0,
+                  sub_subtasks: updatedSubSubtasks
+                };
+              }
+              return subtask;
+            });
+            
+            const allSubtasksCompleted = updatedSubtasks.every(subtask => subtask.completed);
+            
+            return {
+              ...task,
+              completed: allSubtasksCompleted,
+              subtasks: updatedSubtasks
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const toggleExpand = (taskId) => {
+        setExpandedTasks({
+          ...expandedTasks,
+          [taskId]: !expandedTasks[taskId]
+        });
+      };
+      
+      const toggleExpandSubtask = (subtaskId, event) => {
+        // Prevent the click from bubbling up to parent elements
+        if (event) {
+          event.stopPropagation();
+        }
+        
+        setExpandedSubtasks({
+          ...expandedSubtasks,
+          [subtaskId]: !expandedSubtasks[subtaskId]
+        });
+      };
+      
+      const deleteTask = (taskId) => {
+        setTasks(tasks.filter(task => task.id !== taskId));
+      };
+      
+      const deleteSubtask = (taskId, subtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.filter(subtask => subtask.id !== subtaskId)
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const deleteSubSubtask = (taskId, subtaskId, subSubtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => {
+                if (subtask.id === subtaskId) {
+                  return {
+                    ...subtask,
+                    sub_subtasks: (subtask.sub_subtasks || []).filter(
+                      subSubtask => subSubtask.id !== subSubtaskId
+                    )
+                  };
+                }
+                return subtask;
+              })
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const startEditingTask = (taskId) => {
+        setTasks(tasks.map(task => 
+          task.id === taskId ? { ...task, editing: true } : task
+        ));
+      };
+      
+      const startEditingSubtask = (taskId, subtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => 
+                subtask.id === subtaskId ? { ...subtask, editing: true } : subtask
+              )
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const startEditingSubSubtask = (taskId, subtaskId, subSubtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => {
+                if (subtask.id === subtaskId) {
+                  return {
+                    ...subtask,
+                    sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => 
+                      subSubtask.id === subSubtaskId ? { ...subSubtask, editing: true } : subSubtask
+                    )
+                  };
+                }
+                return subtask;
+              })
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const saveTaskEdit = (taskId, newText) => {
+        if (newText.trim() === "") return;
+        setTasks(tasks.map(task => 
+          task.id === taskId 
+            ? { ...task, text: newText.trim(), editing: false } 
+            : task
+        ));
+      };
+      
+      const saveSubtaskEdit = (taskId, subtaskId, newText) => {
+        if (newText.trim() === "") return;
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => 
+                subtask.id === subtaskId 
+                  ? { ...subtask, text: newText.trim(), editing: false } 
+                  : subtask
+              )
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const saveSubSubtaskEdit = (taskId, subtaskId, subSubtaskId, newText) => {
+        if (newText.trim() === "") return;
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => {
+                if (subtask.id === subtaskId) {
+                  return {
+                    ...subtask,
+                    sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => 
+                      subSubtask.id === subSubtaskId 
+                        ? { ...subSubtask, text: newText.trim(), editing: false } 
+                        : subSubtask
+                    )
+                  };
+                }
+                return subtask;
+              })
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const setTaskDueDate = (taskId, date) => {
+        setTasks(tasks.map(task => 
+          task.id === taskId 
+            ? { ...task, dueDate: date } 
+            : task
+        ));
+      };
+      
+      const setSubtaskDueDate = (taskId, subtaskId, date) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => 
+                subtask.id === subtaskId 
+                  ? { ...subtask, dueDate: date } 
+                  : subtask
+              )
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const setSubSubtaskDueDate = (taskId, subtaskId, subSubtaskId, date) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => {
+                if (subtask.id === subtaskId) {
+                  return {
+                    ...subtask,
+                    sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => 
+                      subSubtask.id === subSubtaskId 
+                        ? { ...subSubtask, dueDate: date } 
+                        : subSubtask
+                    )
+                  };
+                }
+                return subtask;
+              })
+            };
+          }
+          return task;
+        }));
+      };
+      
+      // Calculate task completion percentage
+      const calculateTaskProgress = (task) => {
+        if (task.subtasks.length === 0) {
+          return task.completed ? 100 : 0;
+        }
+        
+        let totalItems = task.subtasks.length;
+        let completedItems = 0;
+        
+        task.subtasks.forEach(subtask => {
+          if (subtask.completed) {
+            completedItems++;
+          } else if ((subtask.sub_subtasks || []).length > 0) {
+            // If subtask has sub-subtasks, count them proportionally
+            const subSubtasksTotal = subtask.sub_subtasks.length;
+            const subSubtasksCompleted = subtask.sub_subtasks.filter(item => item.completed).length;
+            completedItems += (subSubtasksCompleted / subSubtasksTotal) * 0.5;
+          }
+        });
+        
+        return Math.round((completedItems / totalItems) * 100);
+      };
+      
+      // Calculate subtask progress
+      const calculateSubtaskProgress = (subtask) => {
+        if ((subtask.sub_subtasks || []).length === 0) {
+          return subtask.completed ? 100 : 0;
+        }
+        
+        const totalSubSubtasks = subtask.sub_subtasks.length;
+        const completedSubSubtasks = subtask.sub_subtasks.filter(item => item.completed).length;
+        
+        return Math.round((completedSubSubtasks / totalSubSubtasks) * 100);
+      };
+      
+      // Check if a date is overdue, today, or approaching (within 2 days)
+      const getDueDateStatus = (dueDate) => {
+        if (!dueDate) return null;
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const taskDueDate = new Date(dueDate);
+        taskDueDate.setHours(0, 0, 0, 0);
+        
+        const timeDiff = taskDueDate.getTime() - today.getTime();
+        const daysDiff = timeDiff / (1000 * 3600 * 24);
+        
+        if (daysDiff < 0) return "overdue"; 
+        if (daysDiff === 0) return "today";
+        if (daysDiff <= 2) return "approaching";
+        return "normal";
+      };
+      
+      // Drag and drop handlers
+      const handleDragStart = (event, id, type, parentInfo = null) => {
+        event.dataTransfer.setData("text/plain", id);
+        event.dataTransfer.setData("type", type);
+        
+        setDraggedItem(id);
+        setDraggedItemType(type);
+        if (parentInfo) {
+          setDraggedItemParent(parentInfo);
+        }
+        
+        // Add visual feedback
+        event.currentTarget.classList.add("dragging");
+      };
+      
+      const handleDragOver = (event) => {
+        event.preventDefault();
+        event.currentTarget.classList.add("drag-over");
+      };
+      
+      const handleDragLeave = (event) => {
+        event.currentTarget.classList.remove("drag-over");
+      };
+      
+      const handleDragEnd = (event) => {
+        event.currentTarget.classList.remove("dragging");
+        setDraggedItem(null);
+        setDraggedItemType(null);
+        setDraggedItemParent(null);
+      };
+      
+      const handleDrop = (event, targetId, type, parentInfo = null) => {
+        event.preventDefault();
+        event.currentTarget.classList.remove("drag-over");
+        
+        const draggedId = parseInt(event.dataTransfer.getData("text/plain"));
+        const draggedType = event.dataTransfer.getData("type");
+        
+        if (draggedId === targetId && draggedType === type) {
+          return; // No need to move to same position
+        }
+        
+        // Handle drop based on the type of dragged item
+        if (draggedType === 'task' && type === 'task') {
+          // Reorder tasks
+          const tasksCopy = [...tasks];
+          const draggedIndex = tasksCopy.findIndex(t => t.id === draggedId);
+          const targetIndex = tasksCopy.findIndex(t => t.id === targetId);
+          
+          if (draggedIndex !== -1 && targetIndex !== -1) {
+            const [removed] = tasksCopy.splice(draggedIndex, 1);
+            tasksCopy.splice(targetIndex, 0, removed);
+            setTasks(tasksCopy);
+          }
+        } 
+        else if (draggedType === 'subtask' && type === 'subtask' && parentInfo && draggedItemParent && parentInfo.taskId === draggedItemParent.taskId) {
+          // Reorder subtasks within the same parent task
+          setTasks(tasks.map(task => {
+            if (task.id === parentInfo.taskId) {
+              const subtasksCopy = [...task.subtasks];
+              const draggedIndex = subtasksCopy.findIndex(s => s.id === draggedId);
+              const targetIndex = subtasksCopy.findIndex(s => s.id === targetId);
+              
+              if (draggedIndex !== -1 && targetIndex !== -1) {
+                const [removed] = subtasksCopy.splice(draggedIndex, 1);
+                subtasksCopy.splice(targetIndex, 0, removed);
+                return { ...task, subtasks: subtasksCopy };
+              }
+            }
+            return task;
+          }));
+        }
+        else if (draggedType === 'subsubtask' && type === 'subsubtask' && parentInfo && draggedItemParent && 
+                parentInfo.taskId === draggedItemParent.taskId && 
+                parentInfo.subtaskId === draggedItemParent.subtaskId) {
+          // Reorder sub-subtasks within the same parent subtask
+          setTasks(tasks.map(task => {
+            if (task.id === parentInfo.taskId) {
+              return {
+                ...task,
+                subtasks: task.subtasks.map(subtask => {
+                  if (subtask.id === parentInfo.subtaskId) {
+                    const subSubtasksCopy = [...(subtask.sub_subtasks || [])];
+                    const draggedIndex = subSubtasksCopy.findIndex(ss => ss.id === draggedId);
+                    const targetIndex = subSubtasksCopy.findIndex(ss => ss.id === targetId);
+                    
+                    if (draggedIndex !== -1 && targetIndex !== -1) {
+                      const [removed] = subSubtasksCopy.splice(draggedIndex, 1);
+                      subSubtasksCopy.splice(targetIndex, 0, removed);
+                      return { ...subtask, sub_subtasks: subSubtasksCopy };
+                    }
+                  }
+                  return subtask;
+                })
+              };
+            }
+            return task;
+          }));
+        }
+      };
+
+      // Sub-subtask component
+      const SubSubtask = ({ task, subtask, subSubtask }) => {
+        const dueStatus = getDueDateStatus(subSubtask.dueDate);
+        
+        const dueDateClasses = {
+          overdue: "text-red-600 font-semibold",
+          today: "text-orange-500 font-semibold",
+          approaching: "text-yellow-600",
+          normal: "text-gray-600"
+        };
+        
+        return (
+          <div 
+            className="flex items-center p-2 pl-6 mb-2 border-l-2 border-gray-200 bg-white rounded-lg hover:bg-gray-50 cursor-move"
+            draggable="true"
+            onDragStart={(e) => handleDragStart(e, subSubtask.id, 'subsubtask', { taskId: task.id, subtaskId: subtask.id })}
+            onDragEnd={handleDragEnd}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, subSubtask.id, 'subsubtask', { taskId: task.id, subtaskId: subtask.id })}
+          >
+            <input 
+              type="checkbox" 
+              checked={subSubtask.completed}
+              onChange={() => toggleSubSubtaskCompletion(task.id, subtask.id, subSubtask.id)}
+              className="mr-2"
+            />
+            {subSubtask.editing ? (
+              <input 
+                type="text" 
+                defaultValue={subSubtask.text}
+                className="flex-grow p-1 border border-gray-300 rounded"
+                onBlur={(e) => saveSubSubtaskEdit(task.id, subtask.id, subSubtask.id, e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && saveSubSubtaskEdit(task.id, subtask.id, subSubtask.id, e.target.value)}
+                autoFocus
+              />
+            ) : (
+              <span 
+                className={`flex-grow ml-2 ${subSubtask.completed ? "line-through text-gray-500" : ""}`}
+              >
+                {subSubtask.text}
+              </span>
+            )}
+            <input 
+              type="date" 
+              value={subSubtask.dueDate || ""} 
+              onChange={(e) => setSubSubtaskDueDate(task.id, subtask.id, subSubtask.id, e.target.value)}
+              className={`mx-2 p-1 text-xs border border-gray-300 rounded ${dueStatus ? dueDateClasses[dueStatus] : ""}`}
+            />
+            <div className="flex items-center ml-2">
+              {!subSubtask.editing && (
+                <button 
+                  onClick={() => startEditingSubSubtask(task.id, subtask.id, subSubtask.id)}
+                  className="p-1 text-gray-600 hover:text-gray-800"
+                >
+                  ✏️
+                </button>
+              )}
+              <button 
+                onClick={() => deleteSubSubtask(task.id, subtask.id, subSubtask.id)}
+                className="p-1 text-red-500 hover:text-red-700"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        );
+      };
+
+      // Subtask component
+      const Subtask = ({ task, subtask }) => {
+        const dueStatus = getDueDateStatus(subtask.dueDate);
+        const subtaskProgress = calculateSubtaskProgress(subtask);
+        
+        const dueDateClasses = {
+          overdue: "text-red-600 font-semibold",
+          today: "text-orange-500 font-semibold",
+          approaching: "text-yellow-600",
+          normal: "text-gray-600"
+        };
+        
+        return (
+          <div className="mb-3">
+            <div 
+              className="flex items-center p-2 mb-2 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-move"
+              draggable="true"
+              onDragStart={(e) => handleDragStart(e, subtask.id, 'subtask', { taskId: task.id })}
+              onDragEnd={handleDragEnd}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, subtask.id, 'subtask', { taskId: task.id })}
+            >
+              <input 
+                type="checkbox" 
+                checked={subtask.completed}
+                onChange={() => toggleSubtaskCompletion(task.id, subtask.id)}
+                className="mr-2"
+              />
+              {subtask.editing ? (
+                <input 
+                  type="text" 
+                  defaultValue={subtask.text}
+                  className="flex-grow p-1 border border-gray-300 rounded"
+                  onBlur={(e) => saveSubtaskEdit(task.id, subtask.id, e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && saveSubtaskEdit(task.id, subtask.id, e.target.value)}
+                  autoFocus
+                />
+              ) : (
+                <span 
+                  className={`flex-grow ml-2 ${subtask.completed ? "line-through text-gray-500" : ""}`}
+                >
+                  {subtask.text}
+                </span>
+              )}
+              <input 
+                type="date" 
+                value={subtask.dueDate || ""} 
+                onChange={(e) => setSubtaskDueDate(task.id, subtask.id, e.target.value)}
+                className={`mx-2 p-1 text-sm border border-gray-300 rounded ${dueStatus ? dueDateClasses[dueStatus] : ""}`}
+              />
+              <div className="flex items-center ml-2">
+                {!subtask.editing && (
+                  <button 
+                    onClick={() => startEditingSubtask(task.id, subtask.id)}
+                    className="p-1 text-gray-600 hover:text-gray-800"
+                  >
+                    ✏️
+                  </button>
+                )}
+                {(subtask.sub_subtasks || []).length > 0 && (
+                  <button 
+                    onClick={(e) => toggleExpandSubtask(subtask.id, e)}
+                    className="p-1 text-gray-600 hover:text-gray-800 cursor-pointer"
+                  >
+                    {expandedSubtasks[subtask.id] ? "▼" : "►"}
+                  </button>
+                )}
+                <button 
+                  onClick={() => deleteSubtask(task.id, subtask.id)}
+                  className="p-1 text-red-500 hover:text-red-700"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            
+            {/* Progress bar for subtask */}
+            <div className="h-1 w-full bg-gray-200 rounded-full mb-2">
+              <div 
+                className="h-1 bg-blue-500 rounded-full" 
+                style={{width: `${subtaskProgress}%`}}
+              ></div>
+            </div>
+            
+            {/* Show sub-subtasks only if the subtask is expanded */}
+            {(subtask.sub_subtasks || []).length > 0 && expandedSubtasks[subtask.id] && (
+              <div className="ml-5 mb-2">
+                {(subtask.sub_subtasks || []).map(subSubtask => (
+                  <SubSubtask 
+                    key={subSubtask.id}
+                    task={task}
+                    subtask={subtask}
+                    subSubtask={subSubtask}
+                  />
+                ))}
+              </div>
+            )}
+            
+            {/* Add sub-subtask input */}
+            {expandedSubtasks[subtask.id] && (
+              <div className="flex items-center ml-6 mt-2">
+                <input 
+                  type="text" 
+                  placeholder="Add a sub-subtask..." 
+                  id={`sub-subtask-input-${task.id}-${subtask.id}`}
+                  className="flex-grow p-1 text-sm border border-gray-300 rounded"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      const input = document.getElementById(`sub-subtask-input-${task.id}-${subtask.id}`);
+                      addSubSubtask(task.id, subtask.id, input.value);
+                      input.value = "";
+                    }
+                  }}
+                />
+                <button 
+                  onClick={() => {
+                    const input = document.getElementById(`sub-subtask-input-${task.id}-${subtask.id}`);
+                    addSubSubtask(task.id, subtask.id, input.value);
+                    input.value = "";
+                  }}
+                  className="ml-2 px-3 py-1 text-sm text-white bg-blue-500 rounded hover:bg-blue-600"
+                >
+                  Add
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      };
+
+      // Task card component
+      const TaskCard = ({ task }) => {
+        const dueStatus = getDueDateStatus(task.dueDate);
+        const progress = calculateTaskProgress(task);
+        
+        const dueDateClasses = {
+          overdue: "text-red-600 font-semibold",
+          today: "text-orange-500 font-semibold",
+          approaching: "text-yellow-600",
+          normal: "text-gray-600"
+        };
+        
+        return (
+          <div className="bg-white rounded-lg shadow-md overflow-hidden mb-4">
+            <div 
+              className="flex items-center p-3 border-b border-gray-200 bg-gray-50 cursor-move"
+              draggable="true"
+              onDragStart={(e) => handleDragStart(e, task.id, 'task')}
+              onDragEnd={handleDragEnd}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, task.id, 'task')}
+            >
+              <input 
+                type="checkbox" 
+                checked={task.completed}
+                onChange={() => toggleTaskCompletion(task.id)}
+                className="mr-2"
+              />
+              {task.editing ? (
+                <input 
+                  type="text" 
+                  defaultValue={task.text}
+                  className="flex-grow p-1 border border-gray-300 rounded"
+                  onBlur={(e) => saveTaskEdit(task.id, e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && saveTaskEdit(task.id, e.target.value)}
+                  autoFocus
+                />
+              ) : (
+                <span 
+                  className={`flex-grow ml-2 ${task.completed ? "line-through text-gray-500" : ""}`}
+                >
+                  {task.text}
+                </span>
+              )}
+              <input 
+                type="date" 
+                value={task.dueDate || ""} 
+                onChange={(e) => setTaskDueDate(task.id, e.target.value)}
+                className={`mx-2 p-1 text-sm border border-gray-300 rounded ${dueStatus ? dueDateClasses[dueStatus] : ""}`}
+              />
+              <div className="flex items-center ml-2">
+                {!task.editing && (
+                  <button 
+                    onClick={() => startEditingTask(task.id)}
+                    className="p-1 text-gray-600 hover:text-gray-800"
+                  >
+                    ✏️
+                  </button>
+                )}
+                <button 
+                  onClick={() => toggleExpand(task.id)}
+                  className="p-1 text-gray-600 hover:text-gray-800 cursor-pointer"
+                >
+                  {expandedTasks[task.id] ? "▼" : "►"}
+                </button>
+                <button 
+                  onClick={() => deleteTask(task.id)}
+                  className="p-1 text-red-500 hover:text-red-700"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            
+            {/* Progress bar for task */}
+            <div className="h-2 w-full bg-gray-200">
+              <div 
+                className="h-2 bg-blue-500" 
+                style={{width: `${progress}%`}}
+              ></div>
+            </div>
+            
+            {expandedTasks[task.id] && (
+              <div className="p-3">
+                {task.subtasks.length === 0 ? (
+                  <div className="text-gray-500 italic text-sm">
+                    No subtasks yet
+                  </div>
+                ) : (
+                  task.subtasks.map(subtask => (
+                    <Subtask 
+                      key={subtask.id} 
+                      task={task} 
+                      subtask={subtask} 
+                    />
+                  ))
+                )}
+                
+                {/* Add subtask input */}
+                <div className="flex items-center mt-3">
+                  <input 
+                    type="text" 
+                    placeholder="Add a subtask..." 
+                    id={`subtask-input-${task.id}`}
+                    className="flex-grow p-2 border border-gray-300 rounded"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        const input = document.getElementById(`subtask-input-${task.id}`);
+                        addSubtask(task.id, input.value);
+                        input.value = "";
+                      }
+                    }}
+                  />
+                  <button 
+                    onClick={() => {
+                      const input = document.getElementById(`subtask-input-${task.id}`);
+                      addSubtask(task.id, input.value);
+                      input.value = "";
+                    }}
+                    className="ml-2 px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      };
+      
+      // Task stats chart component
+      const TaskStatsChart = () => {
+        if (taskStats.length === 0) return null;
+        
+        return (
+          <div className="bg-white p-4 rounded-lg shadow-md mb-4">
+            <h3 className="text-lg font-semibold mb-2">Completion Trend</h3>
+            <div className="h-40">
+              {/* Simple bar chart using CSS */}
+              <div className="flex h-full items-end">
+                {taskStats.map((stat, index) => (
+                  <div key={index} className="flex-1 flex flex-col items-center">
+                    <div 
+                      className="w-full bg-blue-500 rounded-t" 
+                      style={{ height: `${stat.completionRate}%` }}
+                    ></div>
+                    <div className="text-xs mt-1">{stat.date.split('-')[2]}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      };
+      
+      return (
+        <div className="min-h-screen bg-gray-100">
+          <div className="bg-blue-500 text-white p-4 flex justify-between items-center">
+            <h1 className="text-xl font-bold m-0">Enhanced Todo App</h1>
+            <div className="flex items-center">
+              <div className="mr-4">
+                <span className="font-semibold">Tasks:</span> {tasks.length} | 
+                <span className="ml-2 font-semibold">Completed:</span> {tasks.filter(task => task.completed).length} | 
+                <span className="ml-2 font-semibold">Remaining:</span> {tasks.filter(task => !task.completed).length}
+              </div>
+              <div className="flex">
+                <button className="px-2 hover:bg-blue-600 rounded">-</button>
+                <button className="px-2 hover:bg-blue-600 rounded">□</button>
+                <button className="px-2 hover:bg-blue-600 rounded">×</button>
+              </div>
+            </div>
+          </div>
+          
+          <div className="p-4">
+            <div className="mb-4 flex">
+              <input 
+                type="text" 
+                value={newTask}
+                onChange={(e) => setNewTask(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && addTask()}
+                placeholder="Add a new task..."
+                className="flex-grow p-2 border border-gray-300 rounded"
+              />
+              <button 
+                onClick={addTask}
+                className="ml-2 px-4 py-2 bg-blue-500 text-white border-none rounded hover:bg-blue-600"
+              >
+                Add
+              </button>
+            </div>
+            
+            <TaskStatsChart />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {tasks.map(task => (
+                <TaskCard key={task.id} task={task} />
+              ))}
+            </div>
+          </div>
+          
+          <div className="bg-gray-200 p-2 text-sm flex justify-between items-center">
+            <div>
+              <span className="text-gray-600">Due today:</span> {tasks.filter(task => getDueDateStatus(task.dueDate) === 'today').length}
+            </div>
+            <div>
+              <span className="text-red-600">Overdue:</span> {tasks.filter(task => getDueDateStatus(task.dueDate) === 'overdue').length}
+            </div>
+            <div>
+              <span className="text-yellow-600">Approaching:</span> {tasks.filter(task => getDueDateStatus(task.dueDate) === 'approaching').length}
+            </div>
+          </div>
+        </div>
+      );
+    };
+    
+    ReactDOM.render(<TodoApp />, document.getElementById('root'));
+  </script>
+</body>
+</html>
