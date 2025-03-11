@@ -1,0 +1,797 @@
+import React, { useState } from 'react';
+
+const TodoApp = () => {
+  const [tasks, setTasks] = useState([
+    { 
+      id: 1, 
+      text: "Example task", 
+      completed: false, 
+      editing: false,
+      dueDate: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0],
+      subtasks: [
+        { 
+          id: 11, 
+          text: "Example subtask", 
+          completed: false,
+          editing: false,
+          dueDate: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
+          sub_subtasks: [
+            {
+              id: 111,
+              text: "Example sub-subtask",
+              completed: false,
+              editing: false,
+              dueDate: new Date(Date.now() + 86400000).toISOString().split('T')[0]
+            }
+          ]
+        }
+      ]
+    }
+  ]);
+  
+  const [newTask, setNewTask] = useState("");
+  const [expandedTasks, setExpandedTasks] = useState({1: true});
+  const [expandedSubtasks, setExpandedSubtasks] = useState({11: true});
+  
+  // Add new task
+  const addTask = () => {
+    if (newTask.trim() === "") return;
+    const newTaskObj = {
+      id: Date.now(),
+      text: newTask,
+      completed: false,
+      editing: false,
+      dueDate: "",
+      subtasks: []
+    };
+    setTasks([...tasks, newTaskObj]);
+    setNewTask("");
+  };
+  
+  // Add subtask
+  const addSubtask = (taskId, subtaskText) => {
+    if (subtaskText.trim() === "") return;
+    const newSubtaskId = Date.now();
+    setTasks(tasks.map(task => {
+      if (task.id === taskId) {
+        return {
+          ...task,
+          subtasks: [...task.subtasks, {
+            id: newSubtaskId,
+            text: subtaskText,
+            completed: false,
+            editing: false,
+            dueDate: "",
+            sub_subtasks: []
+          }]
+        };
+      }
+      return task;
+    }));
+    
+    // Automatically expand the new subtask
+    setExpandedSubtasks({
+      ...expandedSubtasks,
+      [newSubtaskId]: true
+    });
+  };
+  
+  // Add sub-subtask
+  const addSubSubtask = (taskId, subtaskId, subSubtaskText) => {
+    if (subSubtaskText.trim() === "") return;
+    setTasks(tasks.map(task => {
+      if (task.id === taskId) {
+        return {
+          ...task,
+          subtasks: task.subtasks.map(subtask => {
+            if (subtask.id === subtaskId) {
+              return {
+                ...subtask,
+                sub_subtasks: [...(subtask.sub_subtasks || []), {
+                  id: Date.now(),
+                  text: subSubtaskText,
+                  completed: false,
+                  editing: false,
+                  dueDate: ""
+                }]
+              };
+            }
+            return subtask;
+          })
+        };
+      }
+      return task;
+    }));
+  };
+  
+  // Toggle task completion
+  const toggleTaskCompletion = (taskId) => {
+    setTasks(tasks.map(task => {
+      if (task.id === taskId) {
+        const newCompletedState = !task.completed;
+        return {
+          ...task,
+          completed: newCompletedState,
+          subtasks: task.subtasks.map(subtask => ({
+            ...subtask,
+            completed: newCompletedState ? true : subtask.completed,
+            sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => ({
+              ...subSubtask,
+              completed: newCompletedState ? true : subSubtask.completed
+            }))
+          }))
+        };
+      }
+      return task;
+    }));
+  };
+  
+  // Toggle subtask completion
+  const toggleSubtaskCompletion = (taskId, subtaskId) => {
+    setTasks(tasks.map(task => {
+      if (task.id === taskId) {
+        const updatedSubtasks = task.subtasks.map(subtask => {
+          if (subtask.id === subtaskId) {
+            const newSubtaskCompletedState = !subtask.completed;
+            return { 
+              ...subtask, 
+              completed: newSubtaskCompletedState,
+              sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => ({
+                ...subSubtask,
+                completed: newSubtaskCompletedState ? true : subSubtask.completed
+              }))
+            };
+          }
+          return subtask;
+        });
+        
+        const allSubtasksCompleted = updatedSubtasks.every(subtask => subtask.completed);
+        
+        return {
+          ...task,
+          completed: allSubtasksCompleted,
+          subtasks: updatedSubtasks
+        };
+      }
+      return task;
+    }));
+  };
+  
+  // Toggle sub-subtask completion
+  const toggleSubSubtaskCompletion = (taskId, subtaskId, subSubtaskId) => {
+    setTasks(tasks.map(task => {
+      if (task.id === taskId) {
+        const updatedSubtasks = task.subtasks.map(subtask => {
+          if (subtask.id === subtaskId) {
+            const updatedSubSubtasks = (subtask.sub_subtasks || []).map(subSubtask => {
+              if (subSubtask.id === subSubtaskId) {
+                return { ...subSubtask, completed: !subSubtask.completed };
+              }
+              return subSubtask;
+            });
+            
+            const allSubSubtasksCompleted = updatedSubSubtasks.every(subSubtask => subSubtask.completed);
+            
+            return {
+              ...subtask,
+              completed: allSubSubtasksCompleted && (subtask.sub_subtasks || []).length > 0,
+              sub_subtasks: updatedSubSubtasks
+            };
+          }
+          return subtask;
+        });
+        
+        const allSubtasksCompleted = updatedSubtasks.every(subtask => subtask.completed);
+        
+        return {
+          ...task,
+          completed: allSubtasksCompleted,
+          subtasks: updatedSubtasks
+        };
+      }
+      return task;
+    }));
+  };
+  
+  // Toggle expand task
+  const toggleExpand = (taskId) => {
+    setExpandedTasks({
+      ...expandedTasks,
+      [taskId]: !expandedTasks[taskId]
+    });
+  };
+  
+  // Toggle expand subtask
+  const toggleExpandSubtask = (subtaskId, event) => {
+    // Prevent the click from bubbling up to parent elements
+    if (event) {
+      event.stopPropagation();
+    }
+    
+    setExpandedSubtasks({
+      ...expandedSubtasks,
+      [subtaskId]: !expandedSubtasks[subtaskId]
+    });
+  };
+  
+  // Delete task
+  const deleteTask = (taskId) => {
+    setTasks(tasks.filter(task => task.id !== taskId));
+  };
+  
+  // Delete subtask
+  const deleteSubtask = (taskId, subtaskId) => {
+    setTasks(tasks.map(task => {
+      if (task.id === taskId) {
+        return {
+          ...task,
+          subtasks: task.subtasks.filter(subtask => subtask.id !== subtaskId)
+        };
+      }
+      return task;
+    }));
+  };
+  
+  // Delete sub-subtask
+  const deleteSubSubtask = (taskId, subtaskId, subSubtaskId) => {
+    setTasks(tasks.map(task => {
+      if (task.id === taskId) {
+        return {
+          ...task,
+          subtasks: task.subtasks.map(subtask => {
+            if (subtask.id === subtaskId) {
+              return {
+                ...subtask,
+                sub_subtasks: (subtask.sub_subtasks || []).filter(
+                  subSubtask => subSubtask.id !== subSubtaskId
+                )
+              };
+            }
+            return subtask;
+          })
+        };
+      }
+      return task;
+    }));
+  };
+  
+  // Start editing task
+  const startEditingTask = (taskId) => {
+    setTasks(tasks.map(task => 
+      task.id === taskId ? { ...task, editing: true } : task
+    ));
+  };
+  
+  // Start editing subtask
+  const startEditingSubtask = (taskId, subtaskId) => {
+    setTasks(tasks.map(task => {
+      if (task.id === taskId) {
+        return {
+          ...task,
+          subtasks: task.subtasks.map(subtask => 
+            subtask.id === subtaskId ? { ...subtask, editing: true } : subtask
+          )
+        };
+      }
+      return task;
+    }));
+  };
+  
+  // Start editing sub-subtask
+  const startEditingSubSubtask = (taskId, subtaskId, subSubtaskId) => {
+    setTasks(tasks.map(task => {
+      if (task.id === taskId) {
+        return {
+          ...task,
+          subtasks: task.subtasks.map(subtask => {
+            if (subtask.id === subtaskId) {
+              return {
+                ...subtask,
+                sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => 
+                  subSubtask.id === subSubtaskId ? { ...subSubtask, editing: true } : subSubtask
+                )
+              };
+            }
+            return subtask;
+          })
+        };
+      }
+      return task;
+    }));
+  };
+  
+  // Save task edit
+  const saveTaskEdit = (taskId, newText) => {
+    if (newText.trim() === "") return;
+    setTasks(tasks.map(task => 
+      task.id === taskId 
+        ? { ...task, text: newText.trim(), editing: false } 
+        : task
+    ));
+  };
+  
+  // Save subtask edit
+  const saveSubtaskEdit = (taskId, subtaskId, newText) => {
+    if (newText.trim() === "") return;
+    setTasks(tasks.map(task => {
+      if (task.id === taskId) {
+        return {
+          ...task,
+          subtasks: task.subtasks.map(subtask => 
+            subtask.id === subtaskId 
+              ? { ...subtask, text: newText.trim(), editing: false } 
+              : subtask
+          )
+        };
+      }
+      return task;
+    }));
+  };
+  
+  // Save sub-subtask edit
+  const saveSubSubtaskEdit = (taskId, subtaskId, subSubtaskId, newText) => {
+    if (newText.trim() === "") return;
+    setTasks(tasks.map(task => {
+      if (task.id === taskId) {
+        return {
+          ...task,
+          subtasks: task.subtasks.map(subtask => {
+            if (subtask.id === subtaskId) {
+              return {
+                ...subtask,
+                sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => 
+                  subSubtask.id === subSubtaskId 
+                    ? { ...subSubtask, text: newText.trim(), editing: false } 
+                    : subSubtask
+                )
+              };
+            }
+            return subtask;
+          })
+        };
+      }
+      return task;
+    }));
+  };
+  
+  // Set due date for task
+  const setTaskDueDate = (taskId, date) => {
+    setTasks(tasks.map(task => 
+      task.id === taskId 
+        ? { ...task, dueDate: date } 
+        : task
+    ));
+  };
+  
+  // Set due date for subtask
+  const setSubtaskDueDate = (taskId, subtaskId, date) => {
+    setTasks(tasks.map(task => {
+      if (task.id === taskId) {
+        return {
+          ...task,
+          subtasks: task.subtasks.map(subtask => 
+            subtask.id === subtaskId 
+              ? { ...subtask, dueDate: date } 
+              : subtask
+          )
+        };
+      }
+      return task;
+    }));
+  };
+  
+  // Set due date for sub-subtask
+  const setSubSubtaskDueDate = (taskId, subtaskId, subSubtaskId, date) => {
+    setTasks(tasks.map(task => {
+      if (task.id === taskId) {
+        return {
+          ...task,
+          subtasks: task.subtasks.map(subtask => {
+            if (subtask.id === subtaskId) {
+              return {
+                ...subtask,
+                sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => 
+                  subSubtask.id === subSubtaskId 
+                    ? { ...subSubtask, dueDate: date } 
+                    : subSubtask
+                )
+              };
+            }
+            return subtask;
+          })
+        };
+      }
+      return task;
+    }));
+  };
+  
+  // Calculate task progress
+  const calculateTaskProgress = (task) => {
+    if (task.subtasks.length === 0) {
+      return task.completed ? 100 : 0;
+    }
+    
+    let totalItems = task.subtasks.length;
+    let completedItems = task.subtasks.filter(subtask => subtask.completed).length;
+    
+    return Math.round((completedItems / totalItems) * 100);
+  };
+  
+  // Calculate subtask progress
+  const calculateSubtaskProgress = (subtask) => {
+    if ((subtask.sub_subtasks || []).length === 0) {
+      return subtask.completed ? 100 : 0;
+    }
+    
+    const totalSubSubtasks = subtask.sub_subtasks.length;
+    const completedSubSubtasks = subtask.sub_subtasks.filter(item => item.completed).length;
+    
+    return Math.round((completedSubSubtasks / totalSubSubtasks) * 100);
+  };
+  
+  // Check due date status
+  const getDueDateStatus = (dueDate) => {
+    if (!dueDate) return null;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const taskDueDate = new Date(dueDate);
+    taskDueDate.setHours(0, 0, 0, 0);
+    
+    const timeDiff = taskDueDate.getTime() - today.getTime();
+    const daysDiff = timeDiff / (1000 * 3600 * 24);
+    
+    if (daysDiff < 0) return "overdue"; 
+    if (daysDiff === 0) return "today";
+    if (daysDiff <= 2) return "approaching";
+    return "normal";
+  };
+
+  // Sub-subtask component
+  const SubSubtask = ({ task, subtask, subSubtask }) => {
+    const dueStatus = getDueDateStatus(subSubtask.dueDate);
+    
+    const dueDateClasses = {
+      overdue: "text-red-600 font-semibold",
+      today: "text-orange-500 font-semibold",
+      approaching: "text-yellow-600",
+      normal: "text-gray-600"
+    };
+    
+    return (
+      <div className="flex items-center p-2 pl-6 mb-2 border-l-2 border-gray-200 bg-white rounded-lg hover:bg-gray-50">
+        <input 
+          type="checkbox" 
+          checked={subSubtask.completed}
+          onChange={() => toggleSubSubtaskCompletion(task.id, subtask.id, subSubtask.id)}
+          className="mr-2"
+        />
+        {subSubtask.editing ? (
+          <input 
+            type="text" 
+            defaultValue={subSubtask.text}
+            className="flex-grow p-1 border border-gray-300 rounded"
+            onBlur={(e) => saveSubSubtaskEdit(task.id, subtask.id, subSubtask.id, e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && saveSubSubtaskEdit(task.id, subtask.id, subSubtask.id, e.target.value)}
+            autoFocus
+          />
+        ) : (
+          <span 
+            className={`flex-grow ml-2 ${subSubtask.completed ? "line-through text-gray-500" : ""}`}
+          >
+            {subSubtask.text}
+          </span>
+        )}
+        <input 
+          type="date" 
+          value={subSubtask.dueDate || ""} 
+          onChange={(e) => setSubSubtaskDueDate(task.id, subtask.id, subSubtask.id, e.target.value)}
+          className={`mx-2 p-1 text-xs border border-gray-300 rounded ${dueStatus ? dueDateClasses[dueStatus] : ""}`}
+        />
+        <div className="flex items-center ml-2">
+          {!subSubtask.editing && (
+            <button 
+              onClick={() => startEditingSubSubtask(task.id, subtask.id, subSubtask.id)}
+              className="p-1 text-gray-600 hover:text-gray-800"
+            >
+              ✏️
+            </button>
+          )}
+          <button 
+            onClick={() => deleteSubSubtask(task.id, subtask.id, subSubtask.id)}
+            className="p-1 text-red-500 hover:text-red-700"
+          >
+            ×
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // Subtask component
+  const Subtask = ({ task, subtask }) => {
+    const dueStatus = getDueDateStatus(subtask.dueDate);
+    const progress = calculateSubtaskProgress(subtask);
+    
+    const dueDateClasses = {
+      overdue: "text-red-600 font-semibold",
+      today: "text-orange-500 font-semibold",
+      approaching: "text-yellow-600",
+      normal: "text-gray-600"
+    };
+    
+    return (
+      <div className="mb-3">
+        <div className="flex items-center p-2 mb-2 bg-gray-50 rounded-lg hover:bg-gray-100">
+          <input 
+            type="checkbox" 
+            checked={subtask.completed}
+            onChange={() => toggleSubtaskCompletion(task.id, subtask.id)}
+            className="mr-2"
+          />
+          {subtask.editing ? (
+            <input 
+              type="text" 
+              defaultValue={subtask.text}
+              className="flex-grow p-1 border border-gray-300 rounded"
+              onBlur={(e) => saveSubtaskEdit(task.id, subtask.id, e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && saveSubtaskEdit(task.id, subtask.id, e.target.value)}
+              autoFocus
+            />
+          ) : (
+            <span 
+              className={`flex-grow ml-2 ${subtask.completed ? "line-through text-gray-500" : ""}`}
+            >
+              {subtask.text}
+            </span>
+          )}
+          <input 
+            type="date" 
+            value={subtask.dueDate || ""} 
+            onChange={(e) => setSubtaskDueDate(task.id, subtask.id, e.target.value)}
+            className={`mx-2 p-1 text-sm border border-gray-300 rounded ${dueStatus ? dueDateClasses[dueStatus] : ""}`}
+          />
+          <div className="flex items-center ml-2">
+            {!subtask.editing && (
+              <button 
+                onClick={() => startEditingSubtask(task.id, subtask.id)}
+                className="p-1 text-gray-600 hover:text-gray-800"
+              >
+                ✏️
+              </button>
+            )}
+            {(subtask.sub_subtasks || []).length > 0 && (
+              <button 
+                onClick={(e) => toggleExpandSubtask(subtask.id, e)}
+                className="p-1 text-gray-600 hover:text-gray-800 cursor-pointer"
+              >
+                {expandedSubtasks[subtask.id] ? "▼" : "►"}
+              </button>
+            )}
+            <button 
+              onClick={() => deleteSubtask(task.id, subtask.id)}
+              className="p-1 text-red-500 hover:text-red-700"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+        
+        {/* Progress bar for subtask */}
+        <div className="h-1 w-full bg-gray-200 rounded-full mb-2">
+          <div 
+            className="h-1 bg-blue-500 rounded-full" 
+            style={{width: `${progress}%`}}
+          />
+        </div>
+        
+        {/* Show sub-subtasks only if the subtask is expanded */}
+        {(subtask.sub_subtasks || []).length > 0 && expandedSubtasks[subtask.id] && (
+          <div className="ml-5 mb-2">
+            {(subtask.sub_subtasks || []).map(subSubtask => (
+              <SubSubtask 
+                key={subSubtask.id}
+                task={task}
+                subtask={subtask}
+                subSubtask={subSubtask}
+              />
+            ))}
+          </div>
+        )}
+        
+        {/* Add sub-subtask input */}
+        {expandedSubtasks[subtask.id] && (
+          <div className="flex items-center ml-6 mt-2">
+            <input 
+              type="text" 
+              placeholder="Add a sub-subtask..." 
+              id={`sub-subtask-input-${task.id}-${subtask.id}`}
+              className="flex-grow p-1 text-sm border border-gray-300 rounded"
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  const input = document.getElementById(`sub-subtask-input-${task.id}-${subtask.id}`);
+                  addSubSubtask(task.id, subtask.id, input.value);
+                  input.value = "";
+                }
+              }}
+            />
+            <button 
+              onClick={() => {
+                const input = document.getElementById(`sub-subtask-input-${task.id}-${subtask.id}`);
+                addSubSubtask(task.id, subtask.id, input.value);
+                input.value = "";
+              }}
+              className="ml-2 px-3 py-1 text-sm text-white bg-blue-500 rounded hover:bg-blue-600"
+            >
+              Add
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Task card component
+  const TaskCard = ({ task }) => {
+    const dueStatus = getDueDateStatus(task.dueDate);
+    const progress = calculateTaskProgress(task);
+    
+    const dueDateClasses = {
+      overdue: "text-red-600 font-semibold",
+      today: "text-orange-500 font-semibold",
+      approaching: "text-yellow-600",
+      normal: "text-gray-600"
+    };
+    
+    return (
+      <div className="bg-white rounded-lg shadow-md overflow-hidden mb-4">
+        <div className="flex items-center p-3 border-b border-gray-200 bg-gray-50">
+          <input 
+            type="checkbox" 
+            checked={task.completed}
+            onChange={() => toggleTaskCompletion(task.id)}
+            className="mr-2"
+          />
+          {task.editing ? (
+            <input 
+              type="text" 
+              defaultValue={task.text}
+              className="flex-grow p-1 border border-gray-300 rounded"
+              onBlur={(e) => saveTaskEdit(task.id, e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && saveTaskEdit(task.id, e.target.value)}
+              autoFocus
+            />
+          ) : (
+            <span 
+              className={`flex-grow ml-2 ${task.completed ? "line-through text-gray-500" : ""}`}
+            >
+              {task.text}
+            </span>
+          )}
+          <input 
+            type="date" 
+            value={task.dueDate || ""} 
+            onChange={(e) => setTaskDueDate(task.id, e.target.value)}
+            className={`mx-2 p-1 text-sm border border-gray-300 rounded ${dueStatus ? dueDateClasses[dueStatus] : ""}`}
+          />
+          <div className="flex items-center ml-2">
+            {!task.editing && (
+              <button 
+                onClick={() => startEditingTask(task.id)}
+                className="p-1 text-gray-600 hover:text-gray-800"
+              >
+                ✏️
+              </button>
+            )}
+            <button 
+              onClick={() => toggleExpand(task.id)}
+              className="p-1 text-gray-600 hover:text-gray-800 cursor-pointer"
+            >
+              {expandedTasks[task.id] ? "▼" : "►"}
+            </button>
+            <button 
+              onClick={() => deleteTask(task.id)}
+              className="p-1 text-red-500 hover:text-red-700"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+        
+        {/* Progress bar for task */}
+        <div className="h-2 w-full bg-gray-200">
+          <div 
+            className="h-2 bg-blue-500" 
+            style={{width: `${progress}%`}}
+          />
+        </div>
+        
+        {expandedTasks[task.id] && (
+          <div className="p-3">
+            {task.subtasks.length === 0 ? (
+              <div className="text-gray-500 italic text-sm">
+                No subtasks yet
+              </div>
+            ) : (
+              task.subtasks.map(subtask => (
+                <Subtask 
+                  key={subtask.id} 
+                  task={task} 
+                  subtask={subtask} 
+                />
+              ))
+            )}
+            
+            {/* Add subtask input */}
+            <div className="flex items-center mt-3">
+              <input 
+                type="text" 
+                placeholder="Add a subtask..." 
+                id={`subtask-input-${task.id}`}
+                className="flex-grow p-2 border border-gray-300 rounded"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    const input = document.getElementById(`subtask-input-${task.id}`);
+                    addSubtask(task.id, input.value);
+                    input.value = "";
+                  }
+                }}
+              />
+              <button 
+                onClick={() => {
+                  const input = document.getElementById(`subtask-input-${task.id}`);
+                  addSubtask(task.id, input.value);
+                  input.value = "";
+                }}
+                className="ml-2 px-4 py-2 text-white bg-blue-500 rounded hover:bg-blue-600"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+  
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <div className="bg-blue-500 text-white p-4 flex justify-between items-center">
+        <h1 className="text-xl font-bold m-0">Enhanced Todo App</h1>
+        <div className="text-sm">
+          Tasks: {tasks.length} | 
+          Completed: {tasks.filter(t => t.completed).length} | 
+          Remaining: {tasks.filter(t => !t.completed).length}
+        </div>
+      </div>
+      
+      <div className="p-4">
+        <div className="mb-4 flex">
+          <input 
+            type="text" 
+            value={newTask}
+            onChange={(e) => setNewTask(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && addTask()}
+            placeholder="Add a new task..."
+            className="flex-grow p-2 border border-gray-300 rounded"
+          />
+          <button 
+            onClick={addTask}
+            className="ml-2 px-4 py-2 bg-blue-500 text-white border-none rounded hover:bg-blue-600"
+          >
+            Add
+          </button>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {tasks.map(task => (
+            <TaskCard key={task.id} task={task} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default TodoApp;
