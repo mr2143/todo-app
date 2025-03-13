@@ -530,35 +530,36 @@
         }));
       };
       
-      const toggleSubtaskCompletion = (taskId, subtaskId) => {
-        setTasks(tasks.map(task => {
-          if (task.id === taskId) {
-            const updatedSubtasks = task.subtasks.map(subtask => {
-              if (subtask.id === subtaskId) {
-                const newSubtaskCompletedState = !subtask.completed;
-                return { 
-                  ...subtask, 
-                  completed: newSubtaskCompletedState,
-                  sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => ({
-                    ...subSubtask,
-                    completed: newCompletedState ? true : subSubtask.completed
-                  }))
-                };
-              }
-              return subtask;
-            });
-            
-            const allSubtasksCompleted = updatedSubtasks.every(subtask => subtask.completed);
-            
-            return {
-              ...task,
-              completed: allSubtasksCompleted,
-              subtasks: updatedSubtasks
-            };
-          }
-          return task;
-        }));
+     const toggleSubtaskCompletion = (taskId, subtaskId) => {
+  setTasks(tasks.map(task => {
+    if (task.id === taskId) {
+      const updatedSubtasks = task.subtasks.map(subtask => {
+        if (subtask.id === subtaskId) {
+          const newSubtaskCompletedState = !subtask.completed;
+          return { 
+            ...subtask, 
+            completed: newSubtaskCompletedState,
+            sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => ({
+              ...subSubtask,
+              // Fix: use newSubtaskCompletedState instead of undefined newCompletedState
+              completed: newSubtaskCompletedState ? true : subSubtask.completed
+            }))
+          };
+        }
+        return subtask;
+      });
+      
+      const allSubtasksCompleted = updatedSubtasks.every(subtask => subtask.completed);
+      
+      return {
+        ...task,
+        completed: allSubtasksCompleted,
+        subtasks: updatedSubtasks
       };
+    }
+    return task;
+  }));
+};
       
       const toggleSubSubtaskCompletion = (taskId, subtaskId, subSubtaskId) => {
         setTasks(tasks.map(task => {
