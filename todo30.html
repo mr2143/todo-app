@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Enhanced Todo App with Cross-Level Drag and Task Progress</title>
+  <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    .dragging {
+      opacity: 0.5;
+    }
+    .drag-over {
+      background-color: #e0f2fe;
+      border: 2px dashed #3b82f6;
+    }
+    .task-draggable {
+      cursor: grab;
+    }
+    .task-draggable:active {
+      cursor: grabbing;
+    }
+    .drag-handle {
+      cursor: move;
+      user-select: none;
+      display: inline-block;
+      padding: 0 4px;
+    }
+    .drag-handle:hover {
+      color: #000;
+    }
+    .progress-bar {
+      height: 4px;
+      background-color: #e5e7eb;
+      border-radius: 2px;
+      overflow: hidden;
+      margin: 4px 0;
+    }
+    .progress-value {
+      height: 100%;
+      background-color: #3b82f6;
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+    .drop-indicator {
+      border: 1px dashed #3b82f6;
+      background-color: rgba(59, 130, 246, 0.1);
+      margin: 4px 0;
+      padding: 8px;
+      border-radius: 4px;
+      display: none;
+    }
+    .show-drop-indicator {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="text/babel">
+    const TodoApp = () => {
+      const [tasks, setTasks] = React.useState(() => {
+        try {
+          const savedTasks = localStorage.getItem('tasks');
+          return savedTasks ? JSON.parse(savedTasks) : [
+            { 
+              id: 1, 
+              text: "Example task", 
+              completed: false, 
+              editing: false,
+              dueDate: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0], // 3 days from now
+              subtasks: [
+                { 
+                  id: 11, 
+                  text: "Example subtask", 
+                  completed: false,
+                  editing: false,
+                  dueDate: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0], // 2 days from now
+                  sub_subtasks: [
+                    {
+                      id: 111,
+                      text: "Example sub-subtask",
+                      completed: false,
+                      editing: false,
+                      dueDate: new Date(Date.now() + 86400000).toISOString().split('T')[0] // 1 day from now
+                    }
+                  ]
+                }
+              ]
+            }
+          ];
+        } catch (error) {
+          console.error("Error loading from localStorage:", error);
+          return [
+            { 
+              id: 1, 
+              text: "Example task", 
+              completed: false, 
+              editing: false,
+              dueDate: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0],
+              subtasks: [
+                { 
+                  id: 11, 
+                  text: "Example subtask", 
+                  completed: false,
+                  editing: false,
+                  dueDate: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
+                  sub_subtasks: [
+                    {
+                      id: 111,
+                      text: "Example sub-subtask",
+                      completed: false,
+                      editing: false,
+                      dueDate: new Date(Date.now() + 86400000).toISOString().split('T')[0]
+                    }
+                  ]
+                }
+              ]
+            }
+          ];
+        }
+      });
+      
+      const [newTask, setNewTask] = React.useState("");
+      
+      // For drag and drop
+      const [draggedItem, setDraggedItem] = React.useState(null);
+      const [draggedItemType, setDraggedItemType] = React.useState(null);
+      const [draggedItemParent, setDraggedItemParent] = React.useState(null);
+      const [dropTarget, setDropTarget] = React.useState(null);
+      const [dropTargetType, setDropTargetType] = React.useState(null);
+      
+      // Load expanded state from localStorage
+      const [expandedTasks, setExpandedTasks] = React.useState(() => {
+        try {
+          const savedExpanded = localStorage.getItem('expandedTasks');
+          return savedExpanded ? JSON.parse(savedExpanded) : {1: true};
+        } catch (error) {
+          console.error("Error loading expanded state:", error);
+          return {1: true};
+        }
+      });
+      
+      // Add new state for tracking expanded subtasks
+      const [expandedSubtasks, setExpandedSubtasks] = React.useState(() => {
+        try {
+          const savedExpandedSubtasks = localStorage.getItem('expandedSubtasks');
+          return savedExpandedSubtasks ? JSON.parse(savedExpandedSubtasks) : {11: true};
+        } catch (error) {
+          console.error("Error loading expanded subtasks state:", error);
+          return {11: true};
+        }
+      });
+      
+      // Save tasks to localStorage whenever they change
+      React.useEffect(() => {
+        try {
+          localStorage.setItem('tasks', JSON.stringify(tasks));
+        } catch (error) {
+          console.error("Error saving to localStorage:", error);
+        }
+      }, [tasks]);
+      
+      // Save expanded state to localStorage
+      React.useEffect(() => {
+        try {
+          localStorage.setItem('expandedTasks', JSON.stringify(expandedTasks));
+        } catch (error) {
+          console.error("Error saving expanded state:", error);
+        }
+      }, [expandedTasks]);
+      
+      // Save expanded subtasks state to localStorage
+      React.useEffect(() => {
+        try {
+          localStorage.setItem('expandedSubtasks', JSON.stringify(expandedSubtasks));
+        } catch (error) {
+          console.error("Error saving expanded subtasks state:", error);
+        }
+      }, [expandedSubtasks]);
+      
+      // Request notification permission
+      React.useEffect(() => {
+        if (typeof Notification !== 'undefined' && 
+            Notification.permission !== 'granted' && 
+            Notification.permission !== 'denied') {
+          Notification.requestPermission();
+        }
+      }, []);
+      
+      // Check for due tasks and send notifications
+      React.useEffect(() => {
+        const checkDueTasks = () => {
+          if (typeof Notification === 'undefined') return;
+          
+          const today = new Date().toISOString().split('T')[0];
+          
+          // Check top-level tasks
+          tasks.forEach(task => {
+            if (!task.completed && task.dueDate === today) {
+              showNotification(`Task Due Today: ${task.text}`);
+            }
+            
+            // Check subtasks
+            task.subtasks.forEach(subtask => {
+              if (!subtask.completed && subtask.dueDate === today) {
+                showNotification(`Subtask Due Today: ${subtask.text}`);
+              }
+              
+              // Check sub-subtasks
+              (subtask.sub_subtasks || []).forEach(subSubtask => {
+                if (!subSubtask.completed && subSubtask.dueDate === today) {
+                  showNotification(`Sub-subtask Due Today: ${subSubtask.text}`);
+                }
+              });
+            });
+          });
+        };
+        
+        // Check once on component mount
+        checkDueTasks();
+        
+        // Set interval to check periodically (every hour)
+        const intervalId = setInterval(checkDueTasks, 3600000);
+        
+        return () => clearInterval(intervalId);
+      }, [tasks]);
+      
+      const showNotification = (message) => {
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          new Notification('Todo App Reminder', {
+            body: message,
+            icon: '/favicon.ico'
+          });
+        }
+      };
+      
+      // Calculate task completion percentage
+      const calculateTaskProgress = (task) => {
+        if (task.subtasks.length === 0) {
+          return task.completed ? 100 : 0;
+        }
+        
+        let totalItems = task.subtasks.length;
+        let completedItems = 0;
+        
+        task.subtasks.forEach(subtask => {
+          if (subtask.completed) {
+            completedItems++;
+          } else if ((subtask.sub_subtasks || []).length > 0) {
+            // If subtask has sub-subtasks, count them proportionally
+            const subSubtasksTotal = subtask.sub_subtasks.length;
+            const subSubtasksCompleted = subtask.sub_subtasks.filter(item => item.completed).length;
+            const subSubtaskCompletionRatio = subSubtasksTotal > 0 ? subSubtasksCompleted / subSubtasksTotal : 0;
+            completedItems += subSubtaskCompletionRatio;
+          }
+        });
+        
+        return Math.round((completedItems / totalItems) * 100);
+      };
+      
+      // Calculate subtask progress
+      const calculateSubtaskProgress = (subtask) => {
+        if ((subtask.sub_subtasks || []).length === 0) {
+          return subtask.completed ? 100 : 0;
+        }
+        
+        const totalSubSubtasks = subtask.sub_subtasks.length;
+        const completedSubSubtasks = subtask.sub_subtasks.filter(item => item.completed).length;
+        
+        return Math.round((completedSubSubtasks / totalSubSubtasks) * 100);
+      };
+      
+      const addTask = () => {
+        if (newTask.trim() === "") return;
+        const newTaskObj = {
+          id: Date.now(),
+          text: newTask,
+          completed: false,
+          editing: false,
+          dueDate: "",
+          subtasks: []
+        };
+        setTasks([...tasks, newTaskObj]);
+        setNewTask("");
+      };
+      
+      const addSubtask = (taskId, subtaskText) => {
+        if (subtaskText.trim() === "") return;
+        const newSubtaskId = Date.now();
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: [...task.subtasks, {
+                id: newSubtaskId,
+                text: subtaskText,
+                completed: false,
+                editing: false,
+                dueDate: "",
+                sub_subtasks: []
+              }]
+            };
+          }
+          return task;
+        }));
+        
+        // Automatically expand the parent task if not already expanded
+        if (!expandedTasks[taskId]) {
+          setExpandedTasks({
+            ...expandedTasks,
+            [taskId]: true
+          });
+        }
+      };
+      
+      const addSubSubtask = (taskId, subtaskId, subSubtaskText) => {
+        if (subSubtaskText.trim() === "") return;
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => {
+                if (subtask.id === subtaskId) {
+                  return {
+                    ...subtask,
+                    sub_subtasks: [...(subtask.sub_subtasks || []), {
+                      id: Date.now(),
+                      text: subSubtaskText,
+                      completed: false,
+                      editing: false,
+                      dueDate: ""
+                    }]
+                  };
+                }
+                return subtask;
+              })
+            };
+          }
+          return task;
+        }));
+        
+        // Automatically expand the parent subtask if not already expanded
+        if (!expandedSubtasks[subtaskId]) {
+          setExpandedSubtasks({
+            ...expandedSubtasks,
+            [subtaskId]: true
+          });
+        }
+      };
+      
+      const toggleTaskCompletion = (taskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            const newCompletedState = !task.completed;
+            return {
+              ...task,
+              completed: newCompletedState,
+              subtasks: task.subtasks.map(subtask => ({
+                ...subtask,
+                completed: newCompletedState ? true : subtask.completed,
+                sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => ({
+                  ...subSubtask,
+                  completed: newCompletedState ? true : subSubtask.completed
+                }))
+              }))
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const toggleSubtaskCompletion = (taskId, subtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            const updatedSubtasks = task.subtasks.map(subtask => {
+              if (subtask.id === subtaskId) {
+                const newSubtaskCompletedState = !subtask.completed;
+                return { 
+                  ...subtask, 
+                  completed: newSubtaskCompletedState,
+                  sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => ({
+                    ...subSubtask,
+                    completed: newSubtaskCompletedState ? true : subSubtask.completed
+                  }))
+                };
+              }
+              return subtask;
+            });
+            
+            const allSubtasksCompleted = updatedSubtasks.every(subtask => subtask.completed);
+            
+            return {
+              ...task,
+              completed: allSubtasksCompleted,
+              subtasks: updatedSubtasks
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const toggleSubSubtaskCompletion = (taskId, subtaskId, subSubtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            const updatedSubtasks = task.subtasks.map(subtask => {
+              if (subtask.id === subtaskId) {
+                const updatedSubSubtasks = (subtask.sub_subtasks || []).map(subSubtask => {
+                  if (subSubtask.id === subSubtaskId) {
+                    return { ...subSubtask, completed: !subSubtask.completed };
+                  }
+                  return subSubtask;
+                });
+                
+                const allSubSubtasksCompleted = updatedSubSubtasks.every(subSubtask => subSubtask.completed);
+                
+                return {
+                  ...subtask,
+                  completed: allSubSubtasksCompleted && (subtask.sub_subtasks || []).length > 0,
+                  sub_subtasks: updatedSubSubtasks
+                };
+              }
+              return subtask;
+            });
+            
+            const allSubtasksCompleted = updatedSubtasks.every(subtask => subtask.completed);
+            
+            return {
+              ...task,
+              completed: allSubtasksCompleted,
+              subtasks: updatedSubtasks
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const toggleExpand = (taskId) => {
+        setExpandedTasks({
+          ...expandedTasks,
+          [taskId]: !expandedTasks[taskId]
+        });
+      };
+      
+      const toggleExpandSubtask = (subtaskId, event) => {
+        // Prevent the click from bubbling up to parent elements
+        if (event) {
+          event.stopPropagation();
+        }
+        
+        setExpandedSubtasks({
+          ...expandedSubtasks,
+          [subtaskId]: !expandedSubtasks[subtaskId]
+        });
+      };
+      
+      const deleteTask = (taskId) => {
+        setTasks(tasks.filter(task => task.id !== taskId));
+      };
+      
+      const deleteSubtask = (taskId, subtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.filter(subtask => subtask.id !== subtaskId)
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const deleteSubSubtask = (taskId, subtaskId, subSubtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => {
+                if (subtask.id === subtaskId) {
+                  return {
+                    ...subtask,
+                    sub_subtasks: (subtask.sub_subtasks || []).filter(
+                      subSubtask => subSubtask.id !== subSubtaskId
+                    )
+                  };
+                }
+                return subtask;
+              })
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const startEditingTask = (taskId) => {
+        setTasks(tasks.map(task => 
+          task.id === taskId ? { ...task, editing: true } : task
+        ));
+      };
+      
+      const startEditingSubtask = (taskId, subtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => 
+                subtask.id === subtaskId ? { ...subtask, editing: true } : subtask
+              )
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const startEditingSubSubtask = (taskId, subtaskId, subSubtaskId) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => {
+                if (subtask.id === subtaskId) {
+                  return {
+                    ...subtask,
+                    sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => 
+                      subSubtask.id === subSubtaskId ? { ...subSubtask, editing: true } : subSubtask
+                    )
+                  };
+                }
+                return subtask;
+              })
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const saveTaskEdit = (taskId, newText) => {
+        if (newText.trim() === "") return;
+        setTasks(tasks.map(task => 
+          task.id === taskId 
+            ? { ...task, text: newText.trim(), editing: false } 
+            : task
+        ));
+      };
+      
+      const saveSubtaskEdit = (taskId, subtaskId, newText) => {
+        if (newText.trim() === "") return;
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => 
+                subtask.id === subtaskId 
+                  ? { ...subtask, text: newText.trim(), editing: false } 
+                  : subtask
+              )
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const saveSubSubtaskEdit = (taskId, subtaskId, subSubtaskId, newText) => {
+        if (newText.trim() === "") return;
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => {
+                if (subtask.id === subtaskId) {
+                  return {
+                    ...subtask,
+                    sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => 
+                      subSubtask.id === subSubtaskId 
+                        ? { ...subSubtask, text: newText.trim(), editing: false } 
+                        : subSubtask
+                    )
+                  };
+                }
+                return subtask;
+              })
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const setTaskDueDate = (taskId, date) => {
+        setTasks(tasks.map(task => 
+          task.id === taskId 
+            ? { ...task, dueDate: date } 
+            : task
+        ));
+      };
+      
+      const setSubtaskDueDate = (taskId, subtaskId, date) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => 
+                subtask.id === subtaskId 
+                  ? { ...subtask, dueDate: date } 
+                  : subtask
+              )
+            };
+          }
+          return task;
+        }));
+      };
+      
+      const setSubSubtaskDueDate = (taskId, subtaskId, subSubtaskId, date) => {
+        setTasks(tasks.map(task => {
+          if (task.id === taskId) {
+            return {
+              ...task,
+              subtasks: task.subtasks.map(subtask => {
+                if (subtask.id === subtaskId) {
+                  return {
+                    ...subtask,
+                    sub_subtasks: (subtask.sub_subtasks || []).map(subSubtask => 
+                      subSubtask.id === subSubtaskId 
+                        ? { ...subSubtask, dueDate: date } 
+                        : subSubtask
+                    )
+                  };
+                }
+                return subtask;
+              })
+            };
+          }
+          return task;
+        }));
+      };
+      
+      // Check if a date is overdue, today, or approaching (within 2 days)
+      const getDueDateStatus = (dueDate) => {
+        if (!dueDate) return null;
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const taskDueDate = new Date(dueDate);
+        taskDueDate.setHours(0, 0, 0, 0);
+        
+        const timeDiff = taskDueDate.getTime() - today.getTime();
+        const daysDiff = timeDiff / (1000 * 3600 * 24);
+        
+        if (daysDiff < 0) return "overdue"; 
+        if (daysDiff === 0) return "today";
+        if (daysDiff <= 2) return "approaching";
+        return "normal";
+      };
+      
+      // Find an item by id, no matter where it is in the hierarchy
+      const findItem = (id) => {
+        // Search in top-level tasks
+        let foundTask = tasks.find(t => t.id === id);
+        if (foundTask) return { type: 'task', item: foundTask, parent: null };
+        
+        // Search in subtasks
+        for (const task of tasks) {
+          const foundSubtask = task.subtasks.find(s => s.id === id);
+          if (foundSubtask) return { type: 'subtask', item: foundSubtask, parent: task };
+          
+          // Search in sub-subtasks
+          for (const subtask of task.subtasks) {
+            const foundSubSubtask = (subtask.sub_subtasks || []).find(ss => ss.id === id);
+            if (foundSubSubtask) return { type: 'subsubtask', item: foundSubSubtask, parent: { task, subtask } };
+          }
+        }
+        
+        return null;
+      };
+      
+      // Drag and drop handlers
+      const handleDragStart = (event, id, type, parentInfo = null) => {
+        event.dataTransfer.setData("text/plain", id);
+        event.dataTransfer.setData("type", type);
+        
+        setDraggedItem(id);
+        setDraggedItemType(type);
+        if (parentInfo) {
+          setDraggedItemParent(parentInfo);
+        }
+        
+        // Add visual feedback
+        event.currentTarget.classList.add("dragging");
+      };
+      
+      const handleDragOver = (event, id, type, parentInfo = null) => {
+        event.preventDefault();
+        event.currentTarget.classList.add("drag-over");
+        setDropTarget(id);
+        setDropTargetType(type);
+      };
+      
+      const handleDragLeave = (event) => {
+        event.currentTarget.classList.remove("drag-over");
+        setDropTarget(null);
+        setDropTargetType(null);
+      };
+      
+      const handleDragEnd = (event) => {
+        event.currentTarget.classList.remove("dragging");
+        setDraggedItem(null);
+        setDraggedItemType(null);
+        setDraggedItemParent(null);
+        setDropTarget(null);
+        setDropTargetType(null);
+      };
+      
+      const handleDrop = (event, targetId, targetType, parentInfo = null) => {
+        event.preventDefault();
+        event.currentTarget.classList.remove("drag-over");
+        
+        const draggedId = parseInt(event.dataTransfer.getData("text/plain"));
+        const draggedType = event.dataTransfer.getData("type");
+        
+        if (draggedId === targetId && draggedType === targetType) {
+          return; // No need to move to same position
+        }
+        
+        // Find the dragged item's details
+        const draggedItemDetails = findItem(draggedId);
+        if (!draggedItemDetails) return;
+        
+        // Same level reordering (simpler case, already working)
+        if (draggedType === targetType) {
+          if (draggedType === 'task') {
+            // Reorder tasks
+            const tasksCopy = [...tasks];
+            const draggedIndex = tasksCopy.findIndex(t => t.id === draggedId);
+            const targetIndex = tasksCopy.findIndex(t => t.id === targetId);
+            
+            if (draggedIndex !== -1 && targetIndex !== -1) {
+              const [removed] = tasksCopy.splice(draggedIndex, 1);
+              tasksCopy.splice(targetIndex, 0, removed);
+              setTasks(tasksCopy);
+            }
+          } 
+          else if (draggedType === 'subtask' && parentInfo && draggedItemParent && parentInfo.taskId === draggedItemParent.taskId) {
+            // Reorder subtasks within the same parent task
+            setTasks(tasks.map(task => {
+              if (task.id === parentInfo.taskId) {
+                const subtasksCopy = [...task.subtasks];
+                const draggedIndex = subtasksCopy.findIndex(s => s.id === draggedId);
+                const targetIndex = subtasksCopy.findIndex(s => s.id === targetId);
+                
+                if (draggedIndex !== -1 && targetIndex !== -1) {
+                  const [removed] = subtasksCopy.splice(draggedIndex, 1);
+                  subtasksCopy.splice(targetIndex, 0, removed);
+                  return { ...task, subtasks: subtasksCopy };
+                }
+              }
+              return task;
+            }));
+          }
+          else if (draggedType === 'subsubtask' && parentInfo && draggedItemParent && 
+                  parentInfo.taskId === draggedItemParent.taskId && 
+                  parentInfo.subtaskId === draggedItemParent.subtaskId) {
+            // Reorder sub-subtasks within the same parent subtask
+            setTasks(tasks.map(task => {
+              if (task.id === parentInfo.taskId) {
+                return {
+                  ...task,
+                  subtasks: task.subtasks.map(subtask => {
+                    if (subtask.id === parentInfo.subtaskId) {
+                      const subSubtasksCopy = [...(subtask.sub_subtasks || [])];
+                      const draggedIndex = subSubtasksCopy.findIndex(ss => ss.id === draggedId);
+                      const targetIndex = subSubtasksCopy.findIndex(ss => ss.id === targetId);
+                      
+                      if (draggedIndex !== -1 && targetIndex !== -1) {
+                        const [removed] = subSubtasksCopy.splice(draggedIndex, 1);
+                        subSubtasksCopy.splice(targetIndex, 0, removed);
+                        return { ...subtask, sub_subtasks: subSubtasksCopy };
+                      }
+                    }
+                    return subtask;
+                  })
+                };
+              }
+              return task;
+            }));
+          }
+          return;
+        }
+        
+        // Cross-level movement (new functionality)
+        
+        // First, create a copy of the dragged item
+        const draggedItemCopy = {...draggedItemDetails.item, id: Date.now()};
+        
+        // Remove the dragged item from its original position
+        let tasksCopy = [...tasks];
+        
+        if (draggedType === 'task') {
+          tasksCopy = tasksCopy.filter(t => t.id !== draggedId);
+        } 
+        else if (draggedType === 'subtask') {
+          tasksCopy = tasksCopy.map(task => {
+            if (task.id === draggedItemParent.taskId) {
+              return {
+                ...task,
+                subtasks: task.subtasks.filter(s => s.id !== draggedId)
+              };
+            }
+            return task;
+          });
+        }
+        else if (draggedType === 'subsubtask') {
+          tasksCopy = tasksCopy.map(task => {
+            if (task.id === draggedItemParent.taskId) {
+              return {
+                ...task,
+                subtasks: task.subtasks.map(subtask => {
+                  if (subtask.id === draggedItemParent.subtaskId) {
+                    return {
+                      ...subtask,
+                      sub_subtasks: (subtask.sub_subtasks || []).filter(ss => ss.id !== draggedId)
+                    };
+                  }
+                  return subtask;
+                })
+              };
+            }
+            return task;
+          });
+        }
+        
+        // Add the item to its new position
+        // Moving to a task level
+        if (targetType === 'task') {
+          if (draggedType === 'subtask') {
+            // Convert subtask to task (with its sub-subtasks becoming its subtasks)
+            const newTask = {
+              id: draggedItemCopy.id,
+              text: draggedItemCopy.text,
+              completed: draggedItemCopy.completed,
+              editing: false,
+              dueDate: draggedItemCopy.dueDate || "",
+              subtasks: draggedItemCopy.sub_subtasks || []
+            };
+            
+            // Find the index of the target task and insert new task after it
+            const targetIndex = tasksCopy.findIndex(t => t.id === targetId);
+            if (targetIndex !== -1) {
+              tasksCopy.splice(targetIndex + 1, 0, newTask);
+            } else {
+              tasksCopy.push(newTask);
+            }
+          } 
+          else if (draggedType === 'subsubtask') {
+            // Convert sub-subtask to task
+            const newTask = {
+              id: draggedItemCopy.id,
+              text: draggedItemCopy.text,
+              completed: draggedItemCopy.completed,
+              editing: false,
+              dueDate: draggedItemCopy.dueDate || "",
+              subtasks: []
+            };
+            
+            const targetIndex = tasksCopy.findIndex(t => t.id === targetId);
+            if (targetIndex !== -1) {
+              tasksCopy.splice(targetIndex + 1, 0, newTask);
+            } else {
+              tasksCopy.push(newTask);
+            }
+          }
+        }
+        // Moving to a subtask level
+        else if (targetType === 'subtask') {
+          if (draggedType === 'task') {
+            // Convert task to subtask
+            const newSubtask = {
+              id: draggedItemCopy.id,
+              text: draggedItemCopy.text,
+              completed: draggedItemCopy.completed,
+              editing: false,
+              dueDate: draggedItemCopy.dueDate || "",
+              sub_subtasks: []
+            };
+            
+            // If task had subtasks, convert them to sub-subtasks
+            if (draggedItemCopy.subtasks && draggedItemCopy.subtasks.length > 0) {
+              newSubtask.sub_subtasks = draggedItemCopy.subtasks.map(subtask => ({
+                id: Date.now() + Math.floor(Math.random() * 1000),
+                text: subtask.text,
+                completed: subtask.completed,
+                editing: false,
+                dueDate: subtask.dueDate || ""
+              }));
+            }
+            
+            // Add the new subtask to the target task
+            tasksCopy = tasksCopy.map(task => {
+              if (task.id === parentInfo.taskId) {
+                // Find the target subtask to insert after
+                const targetIndex = task.subtasks.findIndex(s => s.id === targetId);
+                const updatedSubtasks = [...task.subtasks];
+                if (targetIndex !== -1) {
+                  updatedSubtasks.splice(targetIndex + 1, 0, newSubtask);
+                } else {
+                  updatedSubtasks.push(newSubtask);
+                }
+                return { ...task, subtasks: updatedSubtasks };
+              }
+              return task;
+            });
+          }
+          else if (draggedType === 'subsubtask') {
+            // Convert sub-subtask to subtask
+            const newSubtask = {
+              id: draggedItemCopy.id,
+              text: draggedItemCopy.text,
+              completed: draggedItemCopy.completed,
+              editing: false,
+              dueDate: draggedItemCopy.dueDate || "",
+              sub_subtasks: []
+            };
+            
+            // Add the new subtask to the target task
+            tasksCopy = tasksCopy.map(task => {
+              if (task.id === parentInfo.taskId) {
+                // Find the target subtask to insert after
+                const targetIndex = task.subtasks.findIndex(s => s.id === targetId);
+                const updatedSubtasks = [...task.subtasks];
+                if (targetIndex !== -1) {
+                  updatedSubtasks.splice(targetIndex + 1, 0, newSubtask);
+                } else {
+                  updatedSubtasks.push(newSubtask);
+                }
+                return { ...task, subtasks: updatedSubtasks };
+              }
+              return task;
+            });
+          }
+        }
+        // Moving to a sub-subtask level
+        else if (targetType === 'subsubtask') {
+          if (draggedType === 'task') {
+            // Convert task to sub-subtask
+            const newSubSubtask = {
+              id: draggedItemCopy.id,
+              text: draggedItemCopy.text,
+              completed: draggedItemCopy.completed,
+              editing: false,
+              dueDate: draggedItemCopy.dueDate || ""
+            };
+            
+            // Add the new sub-subtask to the target subtask
+            tasksCopy = tasksCopy.map(task => {
+              if (task.id === parentInfo.taskId) {
+                return {
+                  ...task,
+                  subtasks: task.subtasks.map(subtask => {
+                    if (subtask.id === parentInfo.subtaskId) {
+                      // Find the target sub-subtask to insert after
+                      const targetIndex = (subtask.sub_subtasks || []).findIndex(ss => ss.id === targetId);
+                      const updatedSubSubtasks = [...(subtask.sub_subtasks || [])];
+                      if (targetIndex !== -1) {
+                        updatedSubSubtasks.splice(targetIndex + 1, 0, newSubSubtask);
+                      } else {
+                        updatedSubSubtasks.push(newSubSubtask);
+                      }
+                      return {
+                        ...subtask,
+                        sub_subtasks: updatedSubSubtasks
+                      };
+                    }
+                    return subtask;
+                  })
+                };
+              }
+              return task;
+            });
+          }
+          else if (draggedType === 'subtask') {
+            // Convert subtask to sub-subtask
+            const newSubSubtask = {
+              id: draggedItemCopy.id,
+              text: draggedItemCopy.text,
+              completed: draggedItemCopy.completed,
+              editing: false,
+              dueDate: draggedItemCopy.dueDate || ""
+            };
+            
+            // Add the new sub-subtask to the target subtask
+            tasksCopy = tasksCopy.map(task => {
+              if (task.id === parentInfo.taskId) {
+                return {
+                  ...task,
+                  subtasks: task.subtasks.map(subtask => {
+                    if (subtask.id === parentInfo.subtaskId) {
+                      // Find the target sub-subtask to insert after
+                      const targetIndex = (subtask.sub_subtasks || []).findIndex(ss => ss.id === targetId);
+                      const updatedSubSubtasks = [...(subtask.sub_subtasks || [])];
+                      if (targetIndex !== -1) {
+                        updatedSubSubtasks.splice(targetIndex + 1, 0, newSubSubtask);
+                      } else {
+                        updatedSubSubtasks.push(newSubSubtask);
+                      }
+                      return {
+                        ...subtask,
+                        sub_subtasks: updatedSubSubtasks
+                      };
+                    }
+                    return subtask;
+                  })
+                };
+              }
+              return task;
+            });
+          }
+        }
+        
+        // Update state with the modified tasks
+        setTasks(tasksCopy);
